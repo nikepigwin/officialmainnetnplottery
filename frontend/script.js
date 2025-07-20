@@ -1685,7 +1685,7 @@ async function initializeSmartContract() {
     if (!lucid) {
       lucid = await initializeLucid();
     }
-    const SCRIPT_ADDRESS = "addr_test1wyhrg9hr9mz2smdxsfwq5swa35gwtehlft5dyxrrf34285qfdxfw3";
+    const SCRIPT_ADDRESS = "addr_test1wrp5ddnttmrlx9v9g2tkscv6dqppphj9rj3prpfu85ndwgqg0vj98";
     const MIN_ADA = 2000000n;
     // Minimal datum only - simplified structure
     const datum = {

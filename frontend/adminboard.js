@@ -131,7 +131,7 @@ if (updateContractBtn) {
         accepted_tokens: [""],
         prize_split: [["", [100n]]]
       };
-      const SCRIPT_ADDRESS = "addr_test1wqhrg9hr9mz2smdxsfwq5swa35gwtehlft5dyxrrf34285qflkcwk";
+      const SCRIPT_ADDRESS = "addr_test1wrp5ddnttmrlx9v9g2tkscv6dqppphj9rj3prpfu85ndwgqg0vj98";
       const MIN_ADA = 2000000;
       const tx = await window.lucid
         .newTx()
@@ -168,7 +168,7 @@ if (initializeContractBtn) {
         accepted_tokens: [""],
         prize_split: [["", [100n]]]
       };
-      const SCRIPT_ADDRESS = "addr_test1wqhrg9hr9mz2smdxsfwq5swa35gwtehlft5dyxrrf34285qflkcwk";
+      const SCRIPT_ADDRESS = "addr_test1wrp5ddnttmrlx9v9g2tkscv6dqppphj9rj3prpfu85ndwgqg0vj98";
       const MIN_ADA = 2000000;
       const tx = await lucid
         .newTx()

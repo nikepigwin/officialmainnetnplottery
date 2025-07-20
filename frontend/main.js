@@ -8,7 +8,7 @@ let blockfrostConfig;
 // Backend API URL
 const BACKEND_URL = 'https://official-nikepig-lottery.onrender.com';
 // Contract address (update if redeployed)
-const SCRIPT_ADDRESS = 'addr_test1wqhrg9hr9mz2smdxsfwq5swa35gwtehlft5dyxrrf34285qflkcwk';
+const SCRIPT_ADDRESS = 'addr_test1wrp5ddnttmrlx9v9g2tkscv6dqppphj9rj3prpfu85ndwgqg0vj98';
 const BLOCKFROST_PREVIEW_URL = 'https://cardano-preview.blockfrost.io/api/v0';
 
 window.addEventListener('DOMContentLoaded', function() {

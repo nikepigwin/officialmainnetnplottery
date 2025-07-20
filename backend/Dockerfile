@@ -1,12 +1,17 @@
-FROM denoland/deno:alpine-1.39.1
+# Use the official Deno image
+FROM denoland/deno:alpine-1.42.1
 
-WORKDIR /app
-
-# Copy your backend code
-COPY . .
-
-# Expose the port your app runs on
+# The port Render will expose
 EXPOSE 3000
 
-# Run the Deno app
-CMD ["run", "--allow-net", "--allow-env", "--allow-read", "mainmod.ts"]
+# Set working directory
+WORKDIR /app
+
+# Copy backend code
+COPY . .
+
+# Cache dependencies
+RUN deno cache mainmod.ts
+
+# Run the backend
+CMD ["run", "--allow-net", "--allow-env", "mainmod.ts"]
