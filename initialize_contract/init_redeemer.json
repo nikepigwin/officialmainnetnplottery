@@ -1,0 +1,7 @@
+{
+  "Initialize": {
+    "ticket_prices": [["", 1000000]],
+    "accepted_tokens": [""],
+    "prize_split": [["", [50, 30, 20]]]
+  }
+} 
