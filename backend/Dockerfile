@@ -7,11 +7,8 @@ EXPOSE 3000
 # Set working directory
 WORKDIR /app
 
-# Copy backend code
+# Copy backend code (including contract/plutus.json)
 COPY . .
-
-# Copy contract/plutus.json for validator access
-COPY ../contract/plutus.json ./contract/plutus.json
 
 # Cache dependencies
 RUN deno cache mainmod.ts
