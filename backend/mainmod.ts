@@ -501,11 +501,19 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
       throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
     }
+    // Debug log before using fromHex for validator
+    console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
+    console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
     const tx = await lucid
       .newTx()
       .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
       .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-      .attachSpendingValidator({ type: "PlutusV2", script: fromHex(SCRIPT_VALIDATOR) })
+      // Debug log before fromHex
+      // (fromHex is only used here for validator, but add log for any future use)
+      .attachSpendingValidator({ type: "PlutusV2", script: (() => {
+        console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
+        return fromHex(SCRIPT_VALIDATOR);
+      })() })
       .complete();
     const unsignedTx = tx.toString();
     ctx.response.body = {
