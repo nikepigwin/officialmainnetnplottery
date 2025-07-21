@@ -536,7 +536,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       unsignedTx,
       tokenPolicyId: tokenPolicyId,
       ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
-      totalPayment: tokenPolicyId === "lovelace" ? totalPayment / 1_000_000 : totalPayment,
+      totalPayment: tokenPolicyId === "lovelace" ? Number(totalPayment) / 1_000_000 : Number(totalPayment),
       tickets: Array.from({ length: ticketCount }, (_, i) => ({
         id: `ticket_${Date.now()}_${i}`,
         purchasedAt: new Date().toISOString(),
@@ -546,7 +546,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
   } catch (error) {
     console.error('Buy tickets error:', error);
     ctx.response.status = 400;
-    ctx.response.body = { success: false, error: (error instanceof Error ? error.message : String(error)) || "Invalid request body" };
+    ctx.response.body = { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 });
 
