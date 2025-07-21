@@ -502,7 +502,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       .newTx()
       .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
       .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-      .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR })
+      .attachSpendingValidator({ type: "PlutusV2", script: fromHex(SCRIPT_VALIDATOR) })
       .complete();
     const unsignedTx = tx.toString();
     ctx.response.body = {
