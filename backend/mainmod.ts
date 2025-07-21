@@ -241,15 +241,15 @@ async function parseLotteryDatum(datumHash: string): Promise<LotteryStateDatum |
       return null;
     }
     const datumData = datum.json_value;
-    // Robust minimal datum parsing
+    // Robust minimal datum parsing for Plutus JSON (with 'list' for tuples)
     if (datumData.fields && Array.isArray(datumData.fields) && datumData.fields.length === 5) {
       const fields = datumData.fields;
       const parsedDatum: LotteryStateDatum = {
-        total_pools: fields[0]?.list?.map((item: any) => [item.fields[0]?.bytes || "", BigInt(item.fields[1]?.int || 0)]) || [],
-        ticket_prices: fields[1]?.list?.map((item: any) => [item.fields[0]?.bytes || "", BigInt(item.fields[1]?.int || 0)]) || [],
+        total_pools: fields[0]?.list?.map((item: any) => [item.list?.[0]?.bytes || "", BigInt(item.list?.[1]?.int || 0)]) || [],
+        ticket_prices: fields[1]?.list?.map((item: any) => [item.list?.[0]?.bytes || "", BigInt(item.list?.[1]?.int || 0)]) || [],
         total_tickets: BigInt(fields[2]?.int || 0),
         accepted_tokens: fields[3]?.list?.map((item: any) => item.bytes || "") || [],
-        prize_split: fields[4]?.list?.map((item: any) => [item.fields[0]?.bytes || "", item.fields[1]?.list?.map((split: any) => BigInt(split.int || 0)) || []]) || [],
+        prize_split: fields[4]?.list?.map((item: any) => [item.list?.[0]?.bytes || "", item.list?.[1]?.list?.map((split: any) => BigInt(split.int || 0)) || []]) || [],
       };
       console.log(`✅ Parsed datum:`, safeStringify(parsedDatum));
       return parsedDatum;
