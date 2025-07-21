@@ -14,4 +14,4 @@ COPY . .
 RUN deno cache mainmod.ts
 
 # Run the backend
-CMD ["run", "--allow-net", "--allow-env", "mainmod.ts"]
+CMD ["run", "--allow-net", "--allow-env", "--allow-read", "mainmod.ts"]
