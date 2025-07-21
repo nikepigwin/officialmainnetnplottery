@@ -501,15 +501,25 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
       throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
     }
+    // Log all policy IDs and asset maps used in the transaction
+    console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
+    console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
+    console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
+    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum));
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer));
+    // Log the datum and redeemer CBOR
+    console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
+    // Log the script UTxO being used
+    console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
     // Debug log before using fromHex for validator
     console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
     console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
+    // Log every value passed to fromHex (only used for validator here)
     const tx = await lucid
       .newTx()
       .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
       .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-      // Debug log before fromHex
-      // (fromHex is only used here for validator, but add log for any future use)
       .attachSpendingValidator({ type: "PlutusV2", script: (() => {
         console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
         return fromHex(SCRIPT_VALIDATOR);
