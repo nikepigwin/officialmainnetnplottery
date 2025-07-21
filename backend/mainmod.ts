@@ -544,7 +544,13 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       }))
     };
   } catch (error) {
-    console.error('Buy tickets error:', error);
+    let errorMsg;
+    try {
+      errorMsg = typeof error === 'object' ? JSON.stringify(error, jsonBigIntReplacer) : String(error);
+    } catch (e) {
+      errorMsg = String(error);
+    }
+    console.error('Buy tickets error:', errorMsg);
     ctx.response.status = 400;
     ctx.response.body = { success: false, error: error instanceof Error ? error.message : String(error) };
   }
