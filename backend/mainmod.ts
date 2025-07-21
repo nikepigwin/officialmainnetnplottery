@@ -226,6 +226,10 @@ function safeStringify(obj: any) {
   );
 }
 
+function jsonBigIntReplacer(key: string, value: any) {
+  return typeof value === "bigint" ? value.toString() : value;
+}
+
 // Helper function to parse the new smart contract datum
 async function parseLotteryDatum(datumHash: string): Promise<LotteryStateDatum | null> {
   if (!BLOCKFROST_API_KEY) {
@@ -242,7 +246,7 @@ async function parseLotteryDatum(datumHash: string): Promise<LotteryStateDatum |
       return null;
     }
     const datum = await datumRes.json();
-    console.log(`📄 Raw datum:`, safeStringify(datum));
+    console.log(`📄 Raw datum:`, JSON.stringify(datum, jsonBigIntReplacer));
     if (!datum.json_value) {
       console.error("❌ No json_value in datum");
       return null;
@@ -258,7 +262,7 @@ async function parseLotteryDatum(datumHash: string): Promise<LotteryStateDatum |
         accepted_tokens: fields[3]?.list?.map((item: any) => item.bytes || "") || [],
         prize_split: fields[4]?.list?.map((item: any) => [item.list?.[0]?.bytes || "", item.list?.[1]?.list?.map((split: any) => BigInt(split.int || 0)) || []]) || [],
       };
-      console.log(`✅ Parsed datum:`, safeStringify(parsedDatum));
+      console.log(`✅ Parsed datum:`, JSON.stringify(parsedDatum, jsonBigIntReplacer));
       return parsedDatum;
     } else {
       console.error("❌ Datum structure is invalid or not minimal:", safeStringify(datumData));
@@ -505,8 +509,8 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
     console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
     console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
-    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum));
-    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer));
+    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
     // Log the datum and redeemer CBOR
     console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
     console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
