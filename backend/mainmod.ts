@@ -481,7 +481,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       constructor: 1,
       fields: [
         { int: BigInt(totalPayment) },
-        { bytes: redeemerPolicyId },
+        { bytes: redeemerPolicyId }, // DO NOT use fromHex here
         { int: BigInt(ticketCount) }
       ]
     };
@@ -498,7 +498,6 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Serialize redeemer using Lucid's Constr
     const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
     // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
-    // Check validator script before transaction building
     if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
       throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
     }
