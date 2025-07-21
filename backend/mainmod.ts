@@ -498,6 +498,10 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Serialize redeemer using Lucid's Constr
     const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
     // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
+    // Check validator script before transaction building
+    if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
+      throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
+    }
     const tx = await lucid
       .newTx()
       .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
