@@ -460,14 +460,17 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Prepare new datum
     const newDatum = { ...lotteryState };
     let found = false;
+    // Always use '' for ADA in datum
+    const datumPolicyId = tokenPolicyId === 'lovelace' ? '' : tokenPolicyId;
     newDatum.total_pools = newDatum.total_pools.map(([pid, amt]) => {
-      if (pid === tokenPolicyId) {
+      const normPid = pid === 'lovelace' ? '' : pid;
+      if (normPid === datumPolicyId) {
         found = true;
-        return [pid, BigInt(amt) + BigInt(totalPayment)];
+        return [datumPolicyId, BigInt(amt) + BigInt(totalPayment)];
       }
-      return [pid, BigInt(amt)];
+      return [normPid, BigInt(amt)];
     });
-    if (!found) newDatum.total_pools.push([tokenPolicyId, BigInt(totalPayment)]);
+    if (!found) newDatum.total_pools.push([datumPolicyId, BigInt(totalPayment)]);
     newDatum.total_tickets = BigInt((newDatum.total_tickets || 0)) + BigInt(ticketCount);
     // Build redeemer for BuyTicket
     // If ADA, use '' for bytes field in redeemer
