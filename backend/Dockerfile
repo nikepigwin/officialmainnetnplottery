@@ -10,6 +10,9 @@ WORKDIR /app
 # Copy backend code
 COPY . .
 
+# Copy contract/plutus.json for validator access
+COPY ../contract/plutus.json ./contract/plutus.json
+
 # Cache dependencies
 RUN deno cache mainmod.ts
 
