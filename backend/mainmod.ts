@@ -511,7 +511,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
     console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
     console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
-    // Log the datum and redeemer CBOR
+    // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
     console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
     console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
     // Log the script UTxO being used
