@@ -1,6 +1,11 @@
 import { Application, Router } from "oak";
 import { Lucid, Blockfrost, Data, Constr } from "lucid-cardano";
 
+// Utility: Normalize ADA policy ID ('' or 'lovelace' both mean ADA)
+function normalizeAdaPolicyId(pid: string): string {
+  return pid === '' ? 'lovelace' : pid;
+}
+
 // Debug log for Oak and Deno version
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
@@ -419,12 +424,14 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       ctx.response.body = { success: false, error: "Failed to fetch lottery state" };
       return;
     }
-    if (!lotteryState.accepted_tokens.includes(tokenPolicyId)) {
+    const normAcceptedTokens = lotteryState.accepted_tokens.map(normalizeAdaPolicyId);
+    const normTokenPolicyId = normalizeAdaPolicyId(tokenPolicyId);
+    if (!normAcceptedTokens.includes(normTokenPolicyId)) {
       ctx.response.status = 400;
       ctx.response.body = { success: false, error: `Token ${tokenPolicyId} is not accepted in this lottery` };
       return;
     }
-    const ticketPriceEntry = lotteryState.ticket_prices.find(([policyId]) => policyId === tokenPolicyId);
+    const ticketPriceEntry = lotteryState.ticket_prices.find(([policyId]) => normalizeAdaPolicyId(policyId) === normTokenPolicyId);
     if (!ticketPriceEntry) {
       ctx.response.status = 400;
       ctx.response.body = { success: false, error: `No ticket price set for token ${tokenPolicyId}` };
