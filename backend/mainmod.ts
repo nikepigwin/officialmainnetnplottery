@@ -470,11 +470,13 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     if (!found) newDatum.total_pools.push([tokenPolicyId, BigInt(totalPayment)]);
     newDatum.total_tickets = BigInt((newDatum.total_tickets || 0)) + BigInt(ticketCount);
     // Build redeemer for BuyTicket
+    // If ADA, use '' for bytes field in redeemer
+    const redeemerPolicyId = tokenPolicyId === 'lovelace' ? '' : tokenPolicyId;
     const buyTicketRedeemer = {
       constructor: 1,
       fields: [
         { int: BigInt(totalPayment) },
-        { bytes: tokenPolicyId },
+        { bytes: redeemerPolicyId },
         { int: BigInt(ticketCount) }
       ]
     };
@@ -489,7 +491,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Serialize datum
     const datumPlutus = Data.to(newDatum as any, datumType);
     // Serialize redeemer using Lucid's Constr
-    const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), tokenPolicyId, BigInt(ticketCount)]));
+    const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
     // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
     const tx = await lucid
       .newTx()
