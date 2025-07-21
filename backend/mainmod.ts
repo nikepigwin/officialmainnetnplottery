@@ -1,5 +1,6 @@
 import { Application, Router } from "oak";
-import { Lucid, Blockfrost, Data, Constr } from "lucid-cardano";
+import { Lucid, Blockfrost, Data, Constr, fromHex } from "lucid-cardano";
+// Use Deno.readTextFileSync for file reading
 
 // Utility: Normalize ADA policy ID ('' or 'lovelace' both mean ADA)
 function normalizeAdaPolicyId(pid: string): string {
@@ -9,8 +10,9 @@ function normalizeAdaPolicyId(pid: string): string {
 // Debug log for Oak and Deno version
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
-// Placeholder for script validator - will be replaced with actual validator
-const SCRIPT_VALIDATOR = "placeholder_validator";
+// Load the actual validator from contract/plutus.json
+const plutusJson = JSON.parse(Deno.readTextFileSync("./contract/plutus.json"));
+const SCRIPT_VALIDATOR = plutusJson.validators[0].compiledCode;
 
 const app = new Application();
 const router = new Router();
@@ -500,6 +502,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       .newTx()
       .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
       .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
+      .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR })
       .complete();
     const unsignedTx = tx.toString();
     ctx.response.body = {
