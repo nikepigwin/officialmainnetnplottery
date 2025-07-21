@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Management - Nikepig Lottery</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+    <link rel="stylesheet" href="main.css">
+    <style>
+        .token-admin {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .token-form {
+            background: #2a2a2a;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b8b8b8;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3BC117;
+            box-shadow: 0 0 0 2px rgba(59, 193, 23, 0.2);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .token-list {
+            background: #2a2a2a;
+            padding: 24px;
+            border-radius: 12px;
+        }
+        
+        .token-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #3a3a3a;
+        }
+        
+        .token-info {
+            flex: 1;
+        }
+        
+        .token-name {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        
+        .token-details {
+            font-size: 0.9rem;
+            color: #b8b8b8;
+        }
+        
+        .token-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .btn-remove:hover {
+            background: #c82333;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 24px;
+            color: #3BC117;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="card">
+            <a href="index.html" class="back-link">← Back to Lottery</a>
+            <h1>Token Management</h1>
+            <p>Manage accepted native tokens for lottery payments</p>
+        </header>
+
+        <main class="token-admin">
+            <!-- Add Token Form -->
+            <section class="card">
+                <h2>Add New Token</h2>
+                <form id="addTokenForm" class="token-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="policyId">Policy ID *</label>
+                            <input type="text" id="policyId" name="policyId" required 
+                                   placeholder="e.g., 1234567890abcdef...">
+                        </div>
+                        <div class="form-group">
+                            <label for="assetName">Asset Name</label>
+                            <input type="text" id="assetName" name="assetName" 
+                                   placeholder="e.g., MyToken">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="displayName">Display Name *</label>
+                            <input type="text" id="displayName" name="displayName" required 
+                                   placeholder="e.g., My Token">
+                        </div>
+                        <div class="form-group">
+                            <label for="decimals">Decimals *</label>
+                            <input type="number" id="decimals" name="decimals" required 
+                                   min="0" max="18" value="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="exchangeRate">Exchange Rate (tokens per ADA) *</label>
+                        <input type="number" id="exchangeRate" name="exchangeRate" required 
+                               min="0.000001" step="0.000001" placeholder="e.g., 1.5">
+                        <small style="color: #888; margin-top: 4px; display: block;">
+                            How many tokens equal 1 ADA? (e.g., 1.5 means 1.5 tokens = 1 ADA)
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Add Token</button>
+                </form>
+            </section>
+
+            <!-- Current Tokens -->
+            <section class="card">
+                <h2>Accepted Tokens</h2>
+                <div id="tokenList" class="token-list">
+                    <div class="token-item">
+                        <div class="token-info">
+                            <div class="token-name">ADA</div>
+                            <div class="token-details">Native Cardano token • 1 ADA = 1 ADA</div>
+                        </div>
+                        <div class="token-actions">
+                            <span style="color: #888; font-size: 0.9rem;">Default</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification element -->
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script>
+        const API_BASE_URL = 'https://nikepig-lottery.onrender.com';
+        
+        // Load accepted tokens
+        async function loadTokens() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/lottery/accepted-tokens`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayTokens(data.tokens);
+                } else {
+                    showNotification('Failed to load tokens: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error loading tokens:', error);
+                showNotification('Failed to load tokens', 'error');
+            }
+        }
+        
+        // Display tokens in the list
+        function displayTokens(tokens) {
+            const tokenList = document.getElementById('tokenList');
+            tokenList.innerHTML = '';
+            
+            // Always show ADA as default
+            const adaItem = document.createElement('div');
+            adaItem.className = 'token-item';
+            adaItem.innerHTML = `
+                <div class="token-info">
+                    <div class="token-name">ADA</div>
+                    <div class="token-details">Native Cardano token • 1 ADA = 1 ADA</div>
+                </div>
+                <div class="token-actions">
+                    <span style="color: #888; font-size: 0.9rem;">Default</span>
+                </div>
+            `;
+            tokenList.appendChild(adaItem);
+            
+            // Add other tokens
+            tokens.forEach(token => {
+                if (token.policyId !== 'lovelace') {
+                    const tokenItem = document.createElement('div');
+                    tokenItem.className = 'token-item';
+                    tokenItem.innerHTML = `
+                        <div class="token-info">
+                            <div class="token-name">${token.displayName}</div>
+                            <div class="token-details">
+                                Policy: ${token.policyId.substring(0, 20)}... • 
+                                1 ${token.displayName} = ${token.exchangeRate} ADA
+                            </div>
+                        </div>
+                        <div class="token-actions">
+                            <button class="btn-remove" onclick="removeToken('${token.policyId}')">Remove</button>
+                        </div>
+                    `;
+                    tokenList.appendChild(tokenItem);
+                }
+            });
+        }
+        
+        // Add new token
+        async function addToken(tokenData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/lottery/admin/add-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tokenData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Token ${tokenData.displayName} added successfully!`, 'success');
+                    document.getElementById('addTokenForm').reset();
+                    loadTokens();
+                } else {
+                    showNotification('Failed to add token: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error adding token:', error);
+                showNotification('Failed to add token', 'error');
+            }
+        }
+        
+        // Remove token
+        async function removeToken(policyId) {
+            if (!confirm('Are you sure you want to remove this token?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/lottery/admin/remove-token/${policyId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Token removed successfully!', 'success');
+                    loadTokens();
+                } else {
+                    showNotification('Failed to remove token: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error removing token:', error);
+                showNotification('Failed to remove token', 'error');
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Form submission
+        document.getElementById('addTokenForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const tokenData = {
+                policyId: formData.get('policyId'),
+                assetName: formData.get('assetName') || '',
+                displayName: formData.get('displayName'),
+                decimals: parseInt(formData.get('decimals')),
+                exchangeRate: parseFloat(formData.get('exchangeRate'))
+            };
+            
+            await addToken(tokenData);
+        });
+        
+        // Load tokens on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTokens();
+        });
+    </script>
+</body>
+</html> 

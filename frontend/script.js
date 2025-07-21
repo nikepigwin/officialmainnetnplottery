@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'https://official-nikepig-lottery.onrender.com';
+const API_BASE_URL = 'https://official-mainnet-nplottery-backend.onrender.com';
 
 // Debug: Log script loading
 console.log('🎰 Nikepig Lottery Frontend Initialized');
@@ -1685,7 +1685,7 @@ async function initializeSmartContract() {
     if (!lucid) {
       lucid = await initializeLucid();
     }
-    const SCRIPT_ADDRESS = "addr_test1wrp5ddnttmrlx9v9g2tkscv6dqppphj9rj3prpfu85ndwgqg0vj98";
+    const SCRIPT_ADDRESS = "addr_test1wqphj86rnmxlzz9ntyrsu6rdk3ylpqsr492p3gz7wampp7cdsux3s";
     const MIN_ADA = 2000000n;
     // Minimal datum only - simplified structure
     const datum = {

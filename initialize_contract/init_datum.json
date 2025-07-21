@@ -1,6 +1,6 @@
 {
   "total_pools": [["", 0]],
-  "ticket_prices": [["", 1000000]],
+  "ticket_prices": [["", 5000000]],
   "total_tickets": 0,
   "accepted_tokens": [""],
   "prize_split": [["", [50, 30, 20]]]

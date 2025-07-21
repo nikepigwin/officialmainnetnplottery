@@ -50,6 +50,11 @@ pub type LotteryRedeemer {
     prize_amounts: List<(ByteArray, List<Int>)>
   }
   RolloverJackpot {}
+  UpdateDatum {
+    new_ticket_prices: List<(ByteArray, Int)>,
+    new_accepted_tokens: List<ByteArray>,
+    new_prize_split: List<(ByteArray, List<Int>)>
+  }
 }
 
 validator lottery {
@@ -104,6 +109,20 @@ validator lottery {
       RolloverJackpot {} ->
         // Only allow rollover if there are no winners (e.g., total_tickets == 0)
         datum.total_tickets == 0 && validate_script_output_present(tx)
+      UpdateDatum { new_ticket_prices, new_accepted_tokens, new_prize_split } ->
+        // Allow updating datum if new values are valid
+        list.all(new_ticket_prices, fn((_k, v)) { v > 0 }) &&
+        list.length(new_accepted_tokens) > 0 &&
+        list.length(list.unique(new_accepted_tokens)) == list.length(new_accepted_tokens) &&
+        list.all(new_accepted_tokens, fn(token) {
+          contains_key(new_ticket_prices, token) && contains_splits_key(new_prize_split, token)
+        }) &&
+        list.all(new_prize_split, fn((_k, percentages)) {
+          list.length(percentages) > 0 &&
+          list.all(percentages, fn(p) { p > 0 }) &&
+          list.foldl(percentages, 0, fn(sum, p) { sum + p }) == 100
+        }) &&
+        validate_script_output_present(tx)
     }
   }
   else(_) {
