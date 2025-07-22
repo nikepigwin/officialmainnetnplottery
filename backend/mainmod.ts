@@ -553,24 +553,10 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // [DEBUG] Transaction build step
     let tx;
     try {
-      // Ensure scriptUtxo known fields are strings if needed (for Lucid compatibility)
-      const safeScriptUtxo = { ...scriptUtxo };
-      if (safeScriptUtxo.datum && ArrayBuffer.isView(safeScriptUtxo.datum)) {
-        safeScriptUtxo.datum = toHexString(safeScriptUtxo.datum);
-      }
-      if (safeScriptUtxo.datumHash && ArrayBuffer.isView(safeScriptUtxo.datumHash)) {
-        safeScriptUtxo.datumHash = toHexString(safeScriptUtxo.datumHash);
-      }
-      if (safeScriptUtxo.scriptRef && ArrayBuffer.isView(safeScriptUtxo.scriptRef)) {
-        safeScriptUtxo.scriptRef = toHexString(safeScriptUtxo.scriptRef);
-      }
-      // For payToContract, ensure datum is a string (hex)
-      const inlineDatum = typeof datumPlutusHex === 'string' ? datumPlutusHex : toHexString(datumPlutus);
-      // For collectFrom, use the original buyTicketRedeemer object (Lucid expects Data, not hex string)
-      // For collectFrom and payToContract, use Data objects (not hex strings)
+      // Use the UTxO as returned by lucid.utxosAt
       tx = await lucid
         .newTx()
-        .collectFrom([safeScriptUtxo], redeemerPlutus)
+        .collectFrom([scriptUtxo], redeemerPlutus)
         .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
         .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR })
         .complete();
