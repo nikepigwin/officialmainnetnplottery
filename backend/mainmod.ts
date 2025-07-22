@@ -618,9 +618,10 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // [DEBUG] Get unsigned transaction as hex string
     let unsignedTx;
     try {
-      // Get the unsigned transaction as a string that the frontend can sign
+      // Get the unsigned transaction directly from the transaction builder
+      // This should give us the proper CBOR format without completing the transaction
       unsignedTx = await tx.toString();
-      console.log("[DEBUG] unsignedTx (string):", unsignedTx);
+      console.log("[DEBUG] unsignedTx (hex):", unsignedTx);
     } catch (toStrErr) {
       let toStrErrorMsg;
       try {
