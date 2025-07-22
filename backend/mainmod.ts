@@ -220,9 +220,9 @@ router.get("/api/debug-env", (ctx) => {
 });
 
 // Helper function to safely stringify objects with BigInt
-function safeStringify(obj: any) {
-  return JSON.stringify(obj, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value
+function safeStringifyBigInt(obj: any): string {
+  return JSON.stringify(obj, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value
   );
 }
 
@@ -265,7 +265,7 @@ async function parseLotteryDatum(datumHash: string): Promise<LotteryStateDatum |
       console.log(`✅ Parsed datum:`, JSON.stringify(parsedDatum, jsonBigIntReplacer));
       return parsedDatum;
     } else {
-      console.error("❌ Datum structure is invalid or not minimal:", safeStringify(datumData));
+      console.error("❌ Datum structure is invalid or not minimal:", safeStringifyBigInt(datumData));
       return null;
     }
   } catch (error) {
@@ -511,7 +511,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       prize_split: Data.Array(Data.Tuple([Data.Bytes(), Data.Array(Data.Integer())]))
     });
     // Debug log JS object
-    console.log("[DEBUG] newDatum (JS):", JSON.stringify(newDatum, jsonBigIntReplacer));
+    console.log("[DEBUG] newDatum (JS):", safeStringifyBigInt(newDatum));
     const datumPlutus = Data.to(newDatum, datumType);
     console.log("[DEBUG] datumPlutus (CBOR hex):", datumPlutus);
     const lucidRedeemer = new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]);
@@ -523,8 +523,8 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
     console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
     console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
-    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
-    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
+    console.log("[DEBUG] BuyTickets: newDatum:", safeStringifyBigInt(newDatum));
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", safeStringifyBigInt(buyTicketRedeemer));
     // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
     function toHexString(buf: any): string {
       return ArrayBuffer.isView(buf) ? Array.prototype.map.call(buf, (x: number) => x.toString(16).padStart(2, '0')).join('') : String(buf);
@@ -534,7 +534,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutusHex);
     console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCborHex);
     // Log the script UTxO being used
-    console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
+    console.log("[DEBUG] BuyTickets: scriptUtxo:", safeStringifyBigInt(scriptUtxo));
     // Debug log before using fromHex for validator
     console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
     console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
@@ -571,7 +571,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         if (typeof txErr === 'object' && txErr !== null && 'stack' in txErr) {
           txErrorMsg = (txErr as any).stack;
         } else {
-          txErrorMsg = JSON.stringify(txErr, jsonBigIntReplacer);
+          txErrorMsg = safeStringifyBigInt(txErr);
         }
       } catch (e) {
         txErrorMsg = String(txErr);
@@ -594,7 +594,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         if (typeof toStrErr === 'object' && toStrErr !== null && 'stack' in toStrErr) {
           toStrErrorMsg = (toStrErr as any).stack;
         } else {
-          toStrErrorMsg = JSON.stringify(toStrErr, jsonBigIntReplacer);
+          toStrErrorMsg = safeStringifyBigInt(toStrErr);
         }
       } catch (e) {
         toStrErrorMsg = String(toStrErr);
@@ -625,7 +625,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       } else if (typeof err === 'object' && err !== null && 'stack' in err) {
         errorMsg = (err as any).stack;
       } else {
-        errorMsg = JSON.stringify(err, jsonBigIntReplacer);
+        errorMsg = safeStringifyBigInt(err);
       }
     } catch (e) {
       errorMsg = String(err);
