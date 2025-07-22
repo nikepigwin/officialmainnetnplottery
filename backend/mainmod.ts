@@ -424,6 +424,14 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       ctx.response.body = { success: false, error: "Invalid token policy ID" };
       return;
     }
+    // [DEBUG] Network and script address
+    console.log("[DEBUG] NETWORK:", NETWORK);
+    console.log("[DEBUG] SCRIPT_ADDRESS:", SCRIPT_ADDRESS);
+    if (!SCRIPT_ADDRESS || SCRIPT_ADDRESS.length < 10) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Script address is not configured or invalid" };
+      return;
+    }
     const lotteryState = await getCurrentLotteryState();
     if (!lotteryState) {
       ctx.response.status = 400;
@@ -450,12 +458,15 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       ctx.response.body = { success: false, error: "Blockfrost API key not configured" };
       return;
     }
+    // [DEBUG] Lucid instantiation
+    console.log("[DEBUG] Instantiating Lucid with network:", NETWORK);
     const lucid = await Lucid.new(
       new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
       NETWORK
     );
     // Always fetch latest UTxOs at script address
     const scriptUtxos = await lucid.utxosAt(SCRIPT_ADDRESS);
+    console.log("[DEBUG] scriptUtxos at script address:", scriptUtxos);
     if (scriptUtxos.length === 0) {
       ctx.response.status = 400;
       ctx.response.body = { success: false, error: "No UTxO at script address" };
@@ -463,6 +474,8 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     }
     // Use the UTxO with the largest ADA (or first)
     const scriptUtxo = scriptUtxos.sort((a, b) => Number(b.assets.lovelace || 0) - Number(a.assets.lovelace || 0))[0];
+    // [DEBUG] Selected scriptUtxo
+    console.log("[DEBUG] Selected scriptUtxo:", scriptUtxo);
     // Prepare new datum
     const newDatum = { ...lotteryState };
     let found = false;
@@ -489,7 +502,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         { int: BigInt(ticketCount) }
       ]
     };
-    // Serialize datum and redeemer
+    // Serialize datum and redeemer using Lucid Data.to
     const datumType = Data.Object({
       total_pools: Data.Array(Data.Tuple([Data.Bytes(), Data.Integer()])),
       ticket_prices: Data.Array(Data.Tuple([Data.Bytes(), Data.Integer()])),
@@ -497,79 +510,128 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       accepted_tokens: Data.Array(Data.Bytes()),
       prize_split: Data.Array(Data.Tuple([Data.Bytes(), Data.Array(Data.Integer())]))
     });
-    // Debug logs for Data.to and Lucid serialization
-    console.log("[DEBUG] Before Data.to(newDatum, datumType):", JSON.stringify(newDatum, jsonBigIntReplacer));
-    console.log("[DEBUG] datumType:", datumType);
+    // Debug log JS object
+    console.log("[DEBUG] newDatum (JS):", JSON.stringify(newDatum, jsonBigIntReplacer));
+    const datumPlutus = Data.to(newDatum, datumType);
+    console.log("[DEBUG] datumPlutus (CBOR hex):", datumPlutus);
+    const lucidRedeemer = new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]);
+    // Debug log JS object
+    console.log("[DEBUG] buyTicketRedeemer (JS):", lucidRedeemer);
+    const redeemerPlutus = Data.to(lucidRedeemer);
+    console.log("[DEBUG] redeemerPlutus (CBOR hex):", redeemerPlutus);
+    // Log all policy IDs and asset maps used in the transaction
+    console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
+    console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
+    console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
+    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
+    // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
+    function toHexString(buf: any): string {
+      return ArrayBuffer.isView(buf) ? Array.prototype.map.call(buf, (x: number) => x.toString(16).padStart(2, '0')).join('') : String(buf);
+    }
+    const datumPlutusHex = toHexString(datumPlutus);
+    const buyTicketRedeemerCborHex = toHexString(redeemerPlutus);
+    console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutusHex);
+    console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCborHex);
+    // Log the script UTxO being used
+    console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
+    // Debug log before using fromHex for validator
+    console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
+    console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
+    // Log every value passed to fromHex (only used for validator here)
+    console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
+    // [DEBUG] Transaction build step
+    let tx;
     try {
-      const datumPlutus = Data.to(newDatum as any, datumType);
-      console.log("[DEBUG] After Data.to(newDatum, datumType):", datumPlutus);
-      console.log("[DEBUG] Before Data.to(new Constr...):", JSON.stringify([BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)], jsonBigIntReplacer));
-      const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
-      console.log("[DEBUG] After Data.to(new Constr...):", buyTicketRedeemerCbor);
-      // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
-      if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
-        throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
+      // Ensure scriptUtxo known fields are strings if needed (for Lucid compatibility)
+      const safeScriptUtxo = { ...scriptUtxo };
+      if (safeScriptUtxo.datum && ArrayBuffer.isView(safeScriptUtxo.datum)) {
+        safeScriptUtxo.datum = toHexString(safeScriptUtxo.datum);
       }
-      // Log all policy IDs and asset maps used in the transaction
-      console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
-      console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
-      console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
-      console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
-      console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
-      // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
-      console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
-      console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
-      // Log the script UTxO being used
-      console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
-      // Debug log before using fromHex for validator
-      console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
-      console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
-      // Log every value passed to fromHex (only used for validator here)
-      const tx = await lucid
+      if (safeScriptUtxo.datumHash && ArrayBuffer.isView(safeScriptUtxo.datumHash)) {
+        safeScriptUtxo.datumHash = toHexString(safeScriptUtxo.datumHash);
+      }
+      if (safeScriptUtxo.scriptRef && ArrayBuffer.isView(safeScriptUtxo.scriptRef)) {
+        safeScriptUtxo.scriptRef = toHexString(safeScriptUtxo.scriptRef);
+      }
+      // For payToContract, ensure datum is a string (hex)
+      const inlineDatum = typeof datumPlutusHex === 'string' ? datumPlutusHex : toHexString(datumPlutus);
+      // For collectFrom, use the original buyTicketRedeemer object (Lucid expects Data, not hex string)
+      // For collectFrom and payToContract, use Data objects (not hex strings)
+      tx = await lucid
         .newTx()
-        .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
+        .collectFrom([safeScriptUtxo], redeemerPlutus)
         .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-        .attachSpendingValidator({ type: "PlutusV2", script: (() => {
-          console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
-          return fromHex(SCRIPT_VALIDATOR);
-        })() })
+        .attachSpendingValidator({ type: "PlutusV2", script: fromHex(SCRIPT_VALIDATOR) })
         .complete();
-      const unsignedTx = tx.toString();
-      ctx.response.body = {
-        success: true,
-        message: `Unsigned transaction built. Please sign and submit with your wallet.`,
-        unsignedTx,
-        tokenPolicyId: tokenPolicyId,
-        ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
-        totalPayment: tokenPolicyId === "lovelace" ? Number(totalPayment) / 1_000_000 : Number(totalPayment),
-        tickets: Array.from({ length: ticketCount }, (_, i) => ({
-          id: `ticket_${Date.now()}_${i}`,
-          purchasedAt: new Date().toISOString(),
-          tokenPolicyId: tokenPolicyId
-        }))
-      };
-    } catch (err) {
-      let errorMsg;
+      console.log("[DEBUG] Transaction built successfully");
+    } catch (txErr) {
+      let txErrorMsg;
       try {
-        errorMsg = typeof err === 'object' ? JSON.stringify(err, jsonBigIntReplacer) : String(err);
+        if (typeof txErr === 'object' && txErr !== null && 'stack' in txErr) {
+          txErrorMsg = (txErr as any).stack;
+        } else {
+          txErrorMsg = JSON.stringify(txErr, jsonBigIntReplacer);
+        }
       } catch (e) {
-        errorMsg = String(err);
+        txErrorMsg = String(txErr);
       }
-      console.error('[DEBUG] Error during Data.to or Lucid serialization:', errorMsg);
+      console.error('[DEBUG] Error during Lucid transaction build:', txErrorMsg, txErr);
       ctx.response.status = 400;
-      ctx.response.body = { success: false, error: errorMsg };
+      ctx.response.body = { success: false, error: txErrorMsg };
       return;
     }
-  } catch (error) {
+    // [DEBUG] Transaction object
+    console.log("[DEBUG] Transaction object:", tx);
+    // [DEBUG] Transaction toString (unsignedTx):
+    let unsignedTx;
+    try {
+      unsignedTx = typeof tx.toString === 'function' ? tx.toString() : String(tx);
+      console.log("[DEBUG] unsignedTx:", unsignedTx);
+    } catch (toStrErr) {
+      let toStrErrorMsg;
+      try {
+        if (typeof toStrErr === 'object' && toStrErr !== null && 'stack' in toStrErr) {
+          toStrErrorMsg = (toStrErr as any).stack;
+        } else {
+          toStrErrorMsg = JSON.stringify(toStrErr, jsonBigIntReplacer);
+        }
+      } catch (e) {
+        toStrErrorMsg = String(toStrErr);
+      }
+      console.error('[DEBUG] Error during tx.toString():', toStrErrorMsg, toStrErr);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: toStrErrorMsg };
+      return;
+    }
+    ctx.response.body = {
+      success: true,
+      message: `Unsigned transaction built. Please sign and submit with your wallet.`,
+      unsignedTx,
+      tokenPolicyId: tokenPolicyId,
+      ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
+      totalPayment: tokenPolicyId === "lovelace" ? totalPayment / 1_000_000 : totalPayment,
+      tickets: Array.from({ length: ticketCount }, (_, i) => ({
+        id: `ticket_${Date.now()}_${i}`,
+        purchasedAt: new Date().toISOString(),
+        tokenPolicyId: tokenPolicyId
+      }))
+    };
+  } catch (err) {
     let errorMsg;
     try {
-      errorMsg = typeof error === 'object' ? JSON.stringify(error, jsonBigIntReplacer) : String(error);
+      if (typeof err === 'object' && err !== null && 'stack' in err) {
+        errorMsg = (err as any).stack;
+      } else {
+        errorMsg = JSON.stringify(err, jsonBigIntReplacer);
+      }
     } catch (e) {
-      errorMsg = String(error);
+      errorMsg = String(err);
     }
-    console.error('Buy tickets error:', errorMsg);
+    console.error('[DEBUG] BuyTickets endpoint error:', errorMsg, err);
     ctx.response.status = 400;
-    ctx.response.body = { success: false, error: error instanceof Error ? error.message : String(error) };
+    ctx.response.body = { success: false, error: errorMsg };
+    return;
   }
 });
 
