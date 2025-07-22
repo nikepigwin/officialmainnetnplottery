@@ -497,52 +497,69 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       accepted_tokens: Data.Array(Data.Bytes()),
       prize_split: Data.Array(Data.Tuple([Data.Bytes(), Data.Array(Data.Integer())]))
     });
-    // Serialize datum
-    const datumPlutus = Data.to(newDatum as any, datumType);
-    // Serialize redeemer using Lucid's Constr
-    const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
-    // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
-    if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
-      throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
+    // Debug logs for Data.to and Lucid serialization
+    console.log("[DEBUG] Before Data.to(newDatum, datumType):", JSON.stringify(newDatum, jsonBigIntReplacer));
+    console.log("[DEBUG] datumType:", datumType);
+    try {
+      const datumPlutus = Data.to(newDatum as any, datumType);
+      console.log("[DEBUG] After Data.to(newDatum, datumType):", datumPlutus);
+      console.log("[DEBUG] Before Data.to(new Constr...):", JSON.stringify([BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)], jsonBigIntReplacer));
+      const buyTicketRedeemerCbor = Data.to(new Constr(1, [BigInt(totalPayment), redeemerPolicyId, BigInt(ticketCount)]));
+      console.log("[DEBUG] After Data.to(new Constr...):", buyTicketRedeemerCbor);
+      // Use .collectFrom([scriptUtxo], buyTicketRedeemerCbor) for Lucid
+      if (!SCRIPT_VALIDATOR || SCRIPT_VALIDATOR === "") {
+        throw new Error("Validator script is missing or empty. Check contract/plutus.json and Aiken build output.");
+      }
+      // Log all policy IDs and asset maps used in the transaction
+      console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
+      console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
+      console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
+      console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
+      console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
+      // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
+      console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
+      console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
+      // Log the script UTxO being used
+      console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
+      // Debug log before using fromHex for validator
+      console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
+      console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
+      // Log every value passed to fromHex (only used for validator here)
+      const tx = await lucid
+        .newTx()
+        .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
+        .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
+        .attachSpendingValidator({ type: "PlutusV2", script: (() => {
+          console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
+          return fromHex(SCRIPT_VALIDATOR);
+        })() })
+        .complete();
+      const unsignedTx = tx.toString();
+      ctx.response.body = {
+        success: true,
+        message: `Unsigned transaction built. Please sign and submit with your wallet.`,
+        unsignedTx,
+        tokenPolicyId: tokenPolicyId,
+        ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
+        totalPayment: tokenPolicyId === "lovelace" ? Number(totalPayment) / 1_000_000 : Number(totalPayment),
+        tickets: Array.from({ length: ticketCount }, (_, i) => ({
+          id: `ticket_${Date.now()}_${i}`,
+          purchasedAt: new Date().toISOString(),
+          tokenPolicyId: tokenPolicyId
+        }))
+      };
+    } catch (err) {
+      let errorMsg;
+      try {
+        errorMsg = typeof err === 'object' ? JSON.stringify(err, jsonBigIntReplacer) : String(err);
+      } catch (e) {
+        errorMsg = String(err);
+      }
+      console.error('[DEBUG] Error during Data.to or Lucid serialization:', errorMsg);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: errorMsg };
+      return;
     }
-    // Log all policy IDs and asset maps used in the transaction
-    console.log("[DEBUG] BuyTickets: tokenPolicyId:", tokenPolicyId);
-    console.log("[DEBUG] BuyTickets: datumPolicyId:", datumPolicyId);
-    console.log("[DEBUG] BuyTickets: redeemerPolicyId:", redeemerPolicyId);
-    console.log("[DEBUG] BuyTickets: newDatum:", JSON.stringify(newDatum, jsonBigIntReplacer));
-    console.log("[DEBUG] BuyTickets: buyTicketRedeemer:", JSON.stringify(buyTicketRedeemer, jsonBigIntReplacer));
-    // Log the datum and redeemer CBOR as hex strings or buffers, not with JSON.stringify
-    console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutus);
-    console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCbor);
-    // Log the script UTxO being used
-    console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify(scriptUtxo));
-    // Debug log before using fromHex for validator
-    console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
-    console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
-    // Log every value passed to fromHex (only used for validator here)
-    const tx = await lucid
-      .newTx()
-      .collectFrom([scriptUtxo], buyTicketRedeemerCbor)
-      .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-      .attachSpendingValidator({ type: "PlutusV2", script: (() => {
-        console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
-        return fromHex(SCRIPT_VALIDATOR);
-      })() })
-      .complete();
-    const unsignedTx = tx.toString();
-    ctx.response.body = {
-      success: true,
-      message: `Unsigned transaction built. Please sign and submit with your wallet.`,
-      unsignedTx,
-      tokenPolicyId: tokenPolicyId,
-      ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
-      totalPayment: tokenPolicyId === "lovelace" ? Number(totalPayment) / 1_000_000 : Number(totalPayment),
-      tickets: Array.from({ length: ticketCount }, (_, i) => ({
-        id: `ticket_${Date.now()}_${i}`,
-        purchasedAt: new Date().toISOString(),
-        tokenPolicyId: tokenPolicyId
-      }))
-    };
   } catch (error) {
     let errorMsg;
     try {
