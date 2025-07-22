@@ -590,13 +590,13 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       } catch (e) {
         console.error("[DEBUG] fromHex failed before attach:", e);
       }
+      // Build unsigned transaction (do not call .complete() on backend)
       tx = await lucid
         .newTx()
         .collectFrom([scriptUtxo], redeemerPlutus)
         .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-        .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR })
-        .complete();
-      console.log("[DEBUG] Transaction built successfully");
+        .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR });
+      console.log("[DEBUG] Unsigned transaction built successfully");
     } catch (txErr) {
       let txErrorMsg;
       try {
@@ -615,11 +615,12 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     }
     // [DEBUG] Transaction object
     console.log("[DEBUG] Transaction object:", tx);
-    // [DEBUG] Transaction toString (unsignedTx):
+    // [DEBUG] Get unsigned transaction as hex string
     let unsignedTx;
     try {
-      unsignedTx = typeof tx.toString === 'function' ? tx.toString() : String(tx);
-      console.log("[DEBUG] unsignedTx:", unsignedTx);
+      // Get the unsigned transaction as a string that the frontend can sign
+      unsignedTx = await tx.toString();
+      console.log("[DEBUG] unsignedTx (string):", unsignedTx);
     } catch (toStrErr) {
       let toStrErrorMsg;
       try {
