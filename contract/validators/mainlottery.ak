@@ -177,4 +177,4 @@ fn validate_outputs_for_inline_datum(outputs: List<Output>) -> Bool {
       _ -> validate_outputs_for_inline_datum(xs)
     }
   }
-} 
+}
