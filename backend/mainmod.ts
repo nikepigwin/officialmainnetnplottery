@@ -1,5 +1,5 @@
 import { Application, Router } from "oak";
-import { Lucid, Blockfrost, Data, Constr, fromHex } from "lucid-cardano";
+import { Lucid, Blockfrost, Data, Constr, fromHex } from "https://deno.land/x/lucid@0.10.8/mod.ts";
 // Use Deno.readTextFileSync for file reading
 
 // Utility: Normalize ADA policy ID ('' or 'lovelace' both mean ADA)
@@ -468,10 +468,34 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     }
     // [DEBUG] Lucid instantiation
     console.log("[DEBUG] Instantiating Lucid with network:", NETWORK);
+    console.log("[DEBUG] Blockfrost URL:", BLOCKFROST_URL);
+    console.log("[DEBUG] Blockfrost API Key (first 10 chars):", BLOCKFROST_API_KEY.substring(0, 10));
+    
     const lucid = await Lucid.new(
       new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
       NETWORK
     );
+    
+    // Verify provider is set correctly
+    console.log("[DEBUG] Lucid provider:", lucid.provider ? "SET" : "UNDEFINED");
+    if (!lucid.provider) {
+      ctx.response.status = 500;
+      ctx.response.body = { success: false, error: "Lucid provider not initialized correctly" };
+      return;
+    }
+    
+    // Test the provider by making a simple API call
+    try {
+      console.log("[DEBUG] Testing Lucid provider with simple API call...");
+      const testUtxos = await lucid.utxosAt(SCRIPT_ADDRESS);
+      console.log("[DEBUG] Provider test successful, found", testUtxos.length, "UTxOs");
+    } catch (error) {
+      console.error("[DEBUG] Provider test failed:", error);
+      ctx.response.status = 500;
+      ctx.response.body = { success: false, error: "Lucid provider test failed: " + (error instanceof Error ? error.message : String(error)) };
+      return;
+    }
+
     // Always fetch latest UTxOs at script address
     const scriptUtxos = await lucid.utxosAt(SCRIPT_ADDRESS);
     console.log("[DEBUG] scriptUtxos at script address:", scriptUtxos);
