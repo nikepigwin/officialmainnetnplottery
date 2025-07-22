@@ -1052,8 +1052,10 @@ async function buyTicketsForLottery(ticketCount) {
     if (buyResponse.unsignedTx) {
       console.log('🟢 Unsigned transaction received, requesting wallet to sign and submit');
       try {
-        // Try using the hex string directly with the wallet
-        const signedTx = await lucid.wallet.signTx(buyResponse.unsignedTx);
+        // Convert hex string to transaction object using fromTx
+        const unsignedTxObj = lucid.fromTx(buyResponse.unsignedTx);
+        console.log('🟢 Transaction object created:', unsignedTxObj);
+        const signedTx = await lucid.wallet.signTx(unsignedTxObj);
         const txHash = await lucid.wallet.submitTx(signedTx);
         showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
         console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);

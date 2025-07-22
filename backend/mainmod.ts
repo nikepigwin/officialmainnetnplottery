@@ -618,10 +618,22 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // [DEBUG] Get unsigned transaction as hex string
     let unsignedTx;
     try {
-      // Get the unsigned transaction directly from the transaction builder
-      // This should give us the proper CBOR format without completing the transaction
-      unsignedTx = await tx.toString();
-      console.log("[DEBUG] unsignedTx (hex):", unsignedTx);
+      // Get the unsigned transaction in a format that the frontend can deserialize
+      // Try using the transaction builder to get the proper format
+      const txHex = await tx.toString();
+      console.log("[DEBUG] unsignedTx (hex):", txHex);
+      
+      // Verify the hex string is valid
+      if (!txHex || typeof txHex !== 'string' || txHex.length === 0) {
+        throw new Error('Invalid transaction hex string');
+      }
+      
+      // Check if it's a valid hex string
+      if (!/^[0-9a-fA-F]+$/.test(txHex)) {
+        throw new Error('Transaction hex string contains invalid characters');
+      }
+      
+      unsignedTx = txHex;
     } catch (toStrErr) {
       let toStrErrorMsg;
       try {
