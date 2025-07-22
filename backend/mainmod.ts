@@ -536,8 +536,8 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Log the script UTxO being used
     console.log("[DEBUG] BuyTickets: scriptUtxo:", safeStringifyBigInt(scriptUtxo));
     // Debug log before using fromHex for validator
-    console.log("[DEBUG] Validator hex length:", SCRIPT_VALIDATOR.length);
-    console.log("[DEBUG] Validator hex (first 60 chars):", SCRIPT_VALIDATOR.slice(0, 60));
+    console.log("[DEBUG] SCRIPT_VALIDATOR (type):", typeof SCRIPT_VALIDATOR);
+    console.log("[DEBUG] SCRIPT_VALIDATOR (first 100):", SCRIPT_VALIDATOR.slice(0, 100));
     // Log every value passed to fromHex (only used for validator here)
     console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
     // [DEBUG] Transaction build step
