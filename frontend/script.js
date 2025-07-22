@@ -1048,8 +1048,43 @@ async function buyTicketsForLottery(ticketCount) {
       showNotification('Failed to build transaction: ' + (buyResponse?.error || 'Unknown error'), 'error');
       throw new Error('Failed to build transaction: ' + (buyResponse?.error || 'Unknown error'));
     }
-    // If unsignedTx is returned, trigger wallet signing
-    if (buyResponse.unsignedTx) {
+    // If transaction parameters are returned, build transaction on frontend
+    if (buyResponse.transactionParams) {
+      console.log('🟢 Transaction parameters received, building transaction on frontend');
+      try {
+        const params = buyResponse.transactionParams;
+        console.log('🟢 Transaction parameters:', params);
+        
+        // Convert script UTxO assets back to bigint
+        const scriptUtxo = {
+          ...params.scriptUtxo,
+          assets: Object.fromEntries(
+            Object.entries(params.scriptUtxo.assets).map(([k, v]) => [k, BigInt(v)])
+          )
+        };
+        
+        // Build the transaction with proper wallet context
+        console.log('🟢 Building transaction with Lucid...');
+        const tx = await lucid
+          .newTx()
+          .collectFrom([scriptUtxo], Data.to(params.redeemer))
+          .payToContract(params.scriptAddress, { inline: Data.to(params.newDatum) }, { lovelace: BigInt(params.paymentAmount) })
+          .attachSpendingValidator({ type: "PlutusV2", script: params.scriptValidator })
+          .complete();
+        
+        console.log('🟢 Transaction built, requesting wallet to sign');
+        const signedTx = await lucid.wallet.signTx(tx);
+        const txHash = await lucid.wallet.submitTx(signedTx);
+        showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
+        console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
+        
+      } catch (walletError) {
+        showNotification('Transaction build/signing failed: ' + (walletError.message || walletError), 'error');
+        console.error('❌ Transaction build/signing failed:', walletError);
+        throw walletError;
+      }
+    } else if (buyResponse.unsignedTx) {
+      // Fallback to old method if backend still returns unsignedTx
       console.log('🟢 Unsigned transaction received, requesting wallet to sign and submit');
       try {
         // Convert hex string to transaction object using fromTx
@@ -1065,8 +1100,8 @@ async function buyTicketsForLottery(ticketCount) {
         throw walletError;
       }
     } else {
-      showNotification('No unsigned transaction returned from backend', 'error');
-      console.warn('No unsigned transaction returned from backend');
+      showNotification('No transaction data returned from backend', 'error');
+      console.warn('No transaction data returned from backend');
     }
   } catch (error) {
     console.error('Ticket purchase error:', error);

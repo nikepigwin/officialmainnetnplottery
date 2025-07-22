@@ -566,94 +566,38 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     console.log("[DEBUG] BuyTickets: datumPlutus (CBOR):", datumPlutusHex);
     console.log("[DEBUG] BuyTickets: buyTicketRedeemerCbor (CBOR):", buyTicketRedeemerCborHex);
     // Log the script UTxO being used
-    console.log("[DEBUG] BuyTickets: scriptUtxo:", safeStringifyBigInt(scriptUtxo));
-    // Debug log before using fromHex for validator
-    console.log("[DEBUG] SCRIPT_VALIDATOR (type):", typeof SCRIPT_VALIDATOR);
-    console.log("[DEBUG] SCRIPT_VALIDATOR (first 100):", SCRIPT_VALIDATOR.slice(0, 100));
-    console.log("[DEBUG] SCRIPT_VALIDATOR (last 100):", SCRIPT_VALIDATOR.slice(-100));
-    console.log("[DEBUG] SCRIPT_VALIDATOR (length):", SCRIPT_VALIDATOR.length);
-    // Log every value passed to fromHex (only used for validator here)
-    console.log("[DEBUG] fromHex input (validator):", SCRIPT_VALIDATOR);
-    // [DEBUG] Transaction build step
-    let tx;
-    try {
-      // Advanced debug logging for SCRIPT_VALIDATOR before attachSpendingValidator
-      console.log("[DEBUG] SCRIPT_VALIDATOR length:", SCRIPT_VALIDATOR.length);
-      console.log("[DEBUG] SCRIPT_VALIDATOR starts with:", SCRIPT_VALIDATOR.slice(0, 100));
-      console.log("[DEBUG] SCRIPT_VALIDATOR ends with:", SCRIPT_VALIDATOR.slice(-100));
-      console.log("[DEBUG] Contains invalid chars? Comma:", SCRIPT_VALIDATOR.includes(','));
-      console.log("[DEBUG] Contains non-hex? :", /[^0-9a-fA-F]/.test(SCRIPT_VALIDATOR));
-      console.log("[DEBUG] Even length?:", SCRIPT_VALIDATOR.length % 2 === 0);
-      try {
-        const bytes = fromHex(SCRIPT_VALIDATOR);
-        console.log("[DEBUG] fromHex succeeded before attach, bytes length:", bytes.length);
-      } catch (e) {
-        console.error("[DEBUG] fromHex failed before attach:", e);
-      }
-      // Build unsigned transaction (do not call .complete() on backend)
-      tx = await lucid
-        .newTx()
-        .collectFrom([scriptUtxo], redeemerPlutus)
-        .payToContract(SCRIPT_ADDRESS, { inline: datumPlutus }, {})
-        .attachSpendingValidator({ type: "PlutusV2", script: SCRIPT_VALIDATOR });
-      console.log("[DEBUG] Unsigned transaction built successfully");
-    } catch (txErr) {
-      let txErrorMsg;
-      try {
-        if (typeof txErr === 'object' && txErr !== null && 'stack' in txErr) {
-          txErrorMsg = (txErr as any).stack;
-        } else {
-          txErrorMsg = safeStringifyBigInt(txErr);
-        }
-      } catch (e) {
-        txErrorMsg = String(txErr);
-      }
-      console.error('[DEBUG] Error during Lucid transaction build:', txErrorMsg, txErr);
-      ctx.response.status = 400;
-      ctx.response.body = { success: false, error: txErrorMsg };
-      return;
-    }
-    // [DEBUG] Transaction object
-    console.log("[DEBUG] Transaction object:", tx);
-    // [DEBUG] Get unsigned transaction as hex string
-    let unsignedTx;
-    try {
-      // Get the unsigned transaction in a format that the frontend can deserialize
-      // Try using the transaction builder to get the proper format
-      const txHex = await tx.toString();
-      console.log("[DEBUG] unsignedTx (hex):", txHex);
-      
-      // Verify the hex string is valid
-      if (!txHex || typeof txHex !== 'string' || txHex.length === 0) {
-        throw new Error('Invalid transaction hex string');
-      }
-      
-      // Check if it's a valid hex string
-      if (!/^[0-9a-fA-F]+$/.test(txHex)) {
-        throw new Error('Transaction hex string contains invalid characters');
-      }
-      
-      unsignedTx = txHex;
-    } catch (toStrErr) {
-      let toStrErrorMsg;
-      try {
-        if (typeof toStrErr === 'object' && toStrErr !== null && 'stack' in toStrErr) {
-          toStrErrorMsg = (toStrErr as any).stack;
-        } else {
-          toStrErrorMsg = safeStringifyBigInt(toStrErr);
-        }
-      } catch (e) {
-        toStrErrorMsg = String(toStrErr);
-      }
-      console.error('[DEBUG] Error during tx.toString():', toStrErrorMsg, toStrErr);
-      ctx.response.status = 400;
-      ctx.response.body = { success: false, error: toStrErrorMsg };
-      return;
-    }
+    console.log("[DEBUG] BuyTickets: scriptUtxo:", JSON.stringify({
+      ...scriptUtxo,
+      assets: Object.fromEntries(Object.entries(scriptUtxo.assets).map(([k, v]) => [k, v.toString()]))
+    }));
+
+    // Instead of building the transaction on backend, return parameters for frontend to build
+    console.log("[DEBUG] Returning transaction parameters to frontend for transaction building");
+    
     ctx.response.body = {
       success: true,
-      message: `Unsigned transaction built. Please sign and submit with your wallet.`,
-      unsignedTx,
+      message: `Transaction parameters ready. Frontend will build and sign transaction.`,
+      transactionParams: {
+        scriptUtxo: {
+          txHash: scriptUtxo.txHash,
+          outputIndex: scriptUtxo.outputIndex,
+          assets: Object.fromEntries(Object.entries(scriptUtxo.assets).map(([k, v]) => [k, v.toString()])),
+          address: scriptUtxo.address,
+          datum: scriptUtxo.datum
+        },
+        scriptAddress: SCRIPT_ADDRESS,
+        scriptValidator: SCRIPT_VALIDATOR,
+        newDatum: newDatum,
+        redeemer: {
+          constructor: 1,
+          fields: [
+            { int: ticketPrice.toString() },
+            { bytes: tokenPolicyId === "lovelace" ? "" : tokenPolicyId },
+            { int: ticketCount.toString() }
+          ]
+        },
+        paymentAmount: totalPayment.toString()
+      },
       tokenPolicyId: tokenPolicyId,
       ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
       totalPayment: tokenPolicyId === "lovelace" ? totalPayment / 1_000_000 : totalPayment,
