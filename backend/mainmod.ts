@@ -620,7 +620,9 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
   } catch (err) {
     let errorMsg;
     try {
-      if (typeof err === 'object' && err !== null && 'stack' in err) {
+      if (typeof err === 'bigint') {
+        errorMsg = err.toString();
+      } else if (typeof err === 'object' && err !== null && 'stack' in err) {
         errorMsg = (err as any).stack;
       } else {
         errorMsg = JSON.stringify(err, jsonBigIntReplacer);
