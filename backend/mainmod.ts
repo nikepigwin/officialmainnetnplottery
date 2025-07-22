@@ -553,7 +553,19 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // [DEBUG] Transaction build step
     let tx;
     try {
-      // Use the UTxO as returned by lucid.utxosAt
+      // Advanced debug logging for SCRIPT_VALIDATOR before attachSpendingValidator
+      console.log("[DEBUG] SCRIPT_VALIDATOR length:", SCRIPT_VALIDATOR.length);
+      console.log("[DEBUG] SCRIPT_VALIDATOR starts with:", SCRIPT_VALIDATOR.slice(0, 100));
+      console.log("[DEBUG] SCRIPT_VALIDATOR ends with:", SCRIPT_VALIDATOR.slice(-100));
+      console.log("[DEBUG] Contains invalid chars? Comma:", SCRIPT_VALIDATOR.includes(','));
+      console.log("[DEBUG] Contains non-hex? :", /[^0-9a-fA-F]/.test(SCRIPT_VALIDATOR));
+      console.log("[DEBUG] Even length?:", SCRIPT_VALIDATOR.length % 2 === 0);
+      try {
+        const bytes = fromHex(SCRIPT_VALIDATOR);
+        console.log("[DEBUG] fromHex succeeded before attach, bytes length:", bytes.length);
+      } catch (e) {
+        console.error("[DEBUG] fromHex failed before attach:", e);
+      }
       tx = await lucid
         .newTx()
         .collectFrom([scriptUtxo], redeemerPlutus)
@@ -1608,6 +1620,20 @@ app.use(async (ctx, next) => {
 
 app.use(router.routes());
 app.use(router.allowedMethods());
+
+// Add a debug endpoint to inspect plutus.json and compiledCode
+router.get("/api/debug-plutus", (ctx) => {
+  const rawFile = Deno.readTextFileSync("./contract/plutus.json");
+  const parsed = JSON.parse(rawFile);
+  ctx.response.body = {
+    rawLength: rawFile.length,
+    compiledCodeLength: parsed.validators[0].compiledCode.length,
+    compiledCodeStart: parsed.validators[0].compiledCode.slice(0, 100),
+    compiledCodeEnd: parsed.validators[0].compiledCode.slice(-100),
+    hasComma: parsed.validators[0].compiledCode.includes(','),
+    nonHexMatch: parsed.validators[0].compiledCode.match(/[^0-9a-fA-F]/g),
+  };
+});
 
 const port = parseInt(Deno.env.get("PORT") || "3000");
 console.log(`🚀 Updated Deno server running on port ${port}`);
