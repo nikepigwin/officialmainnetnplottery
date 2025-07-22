@@ -14,7 +14,7 @@ console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Den
 const plutusJson = JSON.parse(Deno.readTextFileSync("./contract/plutus.json"));
 const SCRIPT_VALIDATOR = plutusJson.validators[0].compiledCode;
 
-// Minimal test for fromHex(SCRIPT_VALIDATOR)
+// Minimal test for fromHex(SCRIPT_VALIDATOR) ///
 try {
   fromHex(SCRIPT_VALIDATOR);
   console.log("[fromHex TEST] SCRIPT_VALIDATOR is valid hex and can be decoded.");
