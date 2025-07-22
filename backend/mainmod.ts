@@ -128,37 +128,20 @@ function requestLogger() {
   };
 }
 
-// CORS middleware with enhanced security
+// Add CORS middleware at the top of the file after imports
 app.use(async (ctx, next) => {
-  const allowedOrigins = [
-    "https://nikepig.win",
-    "http://localhost:8000"
-  ];
-  const origin = ctx.request.headers.get("origin");
-  if (origin && allowedOrigins.includes(origin)) {
-    ctx.response.headers.set("Access-Control-Allow-Origin", origin);
-  }
-  ctx.response.headers.set("Vary", "Origin");
+  // Set CORS headers
+  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
   ctx.response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  ctx.response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Signature, X-Admin-Message");
-  ctx.response.headers.set("Access-Control-Max-Age", "86400");
-  ctx.response.headers.set("X-Content-Type-Options", "nosniff");
-  ctx.response.headers.set("X-Frame-Options", "DENY");
-  ctx.response.headers.set("X-XSS-Protection", "1; mode=block");
-  ctx.response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  ctx.response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  // Handle preflight requests
   if (ctx.request.method === "OPTIONS") {
     ctx.response.status = 200;
     return;
   }
-  try {
-    await next();
-  } finally {
-    // Always set CORS headers, even on errors
-    if (origin && allowedOrigins.includes(origin)) {
-      ctx.response.headers.set("Access-Control-Allow-Origin", origin);
-    }
-    ctx.response.headers.set("Vary", "Origin");
-  }
+  
+  await next();
 });
 
 // Apply security middlewares
