@@ -1185,13 +1185,19 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 ❌ Transaction without validator failed:', e.message);
         }
         
+        console.log('🔍 Debugging Lucid object and available methods...');
+        console.log('🔍 Lucid object:', lucid);
+        console.log('🔍 newTx result:', lucid.newTx());
+        console.log('🔍 Available methods on newTx:', Object.getOwnPropertyNames(lucid.newTx()));
+        
         console.log('🔍 Trying simplest possible approach - basic payment only...');
         try {
+          // Try correct Lucid API method name
           const simpleTx = await lucid
             .newTx()
-            .payTo(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+            .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
             .complete();
-          console.log('🔍 ✅ Simple payTo worked');
+          console.log('🔍 ✅ Simple payToAddress worked');
           
           const signedTx = await simpleTx.sign().complete();
           const txHash = await signedTx.submit();
@@ -1201,7 +1207,7 @@ async function buyTicketsForLottery(ticketCount) {
           return;
           
         } catch (e) {
-          console.log('🔍 ❌ Simple payTo failed:', e.message);
+          console.log('🔍 ❌ Simple payToAddress failed:', e.message);
         }
         
         console.log('🔍 Building full transaction - last attempt...');
