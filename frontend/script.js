@@ -1076,36 +1076,38 @@ async function buyTicketsForLottery(ticketCount) {
         // Try to use CBOR data from backend, fall back to manual construction
         let redeemerData, datumData;
         
-        // Try using simple data structures instead of CBOR strings
+        // Try using minimal data to isolate the issue
         console.log('🔍 Using CBOR redeemer:', params.redeemerCbor);
         console.log('🔍 Using CBOR datum:', params.datumCbor);
         
-        // Try using Data.empty() for redeemer and parsed datum
+        // Use minimal redeemer - try empty array or simple data
         try {
-          redeemerData = Data.empty();
-          console.log('🔍 Using Data.empty() for redeemer');
+          redeemerData = Data.to([]);
+          console.log('🔍 Using empty array for redeemer');
         } catch (e) {
-          console.log('🔍 Data.empty() failed, using raw CBOR:', e.message);
-          redeemerData = params.redeemerCbor;
+          console.log('🔍 Empty array redeemer failed:', e.message);
+          try {
+            redeemerData = Data.to(0);
+            console.log('🔍 Using simple number for redeemer');
+          } catch (e2) {
+            console.log('🔍 Simple redeemer failed, using raw CBOR:', e2.message);
+            redeemerData = params.redeemerCbor;
+          }
         }
         
-        // For datum, try to use the structured data from backend
+        // Use minimal datum - try simple data structure
         try {
-          if (params.newDatum) {
-            datumData = Data.to({
-              total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
-              total_tickets: BigInt(params.newDatum.total_tickets),
-              ticket_prices: params.newDatum.ticket_prices.map(([pid, price]) => [pid, BigInt(price)]),
-              accepted_tokens: params.newDatum.accepted_tokens,
-              prize_split: params.newDatum.prize_split
-            });
-            console.log('🔍 Using structured datum from newDatum');
-          } else {
-            throw new Error('No newDatum available');
-          }
+          datumData = Data.to([]);
+          console.log('🔍 Using empty array for datum');
         } catch (e) {
-          console.log('🔍 Structured datum failed, using raw CBOR:', e.message);
-          datumData = params.datumCbor;
+          console.log('🔍 Empty array datum failed:', e.message);
+          try {
+            datumData = Data.to(0);
+            console.log('🔍 Using simple number for datum');
+          } catch (e2) {
+            console.log('🔍 Simple datum failed, using raw CBOR:', e2.message);
+            datumData = params.datumCbor;
+          }
         }
         
         console.log('🔍 Converted redeemer:', redeemerData);
