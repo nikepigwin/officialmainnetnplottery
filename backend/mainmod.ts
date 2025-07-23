@@ -570,7 +570,12 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         },
         scriptAddress: SCRIPT_ADDRESS,
         scriptValidator: SCRIPT_VALIDATOR,
-        newDatum: newDatum,
+        newDatum: {
+          ...newDatum,
+          total_pools: newDatum.total_pools.map(([pid, amt]) => [pid, amt.toString()]),
+          total_tickets: newDatum.total_tickets.toString(),
+          ticket_prices: newDatum.ticket_prices.map(([pid, price]) => [pid, price.toString()])
+        },
         redeemer: {
           constructor: 1,
           fields: [
@@ -583,7 +588,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       },
       tokenPolicyId: tokenPolicyId,
       ticketPrice: tokenPolicyId === "lovelace" ? Number(ticketPrice) / 1_000_000 : Number(ticketPrice),
-      totalPayment: tokenPolicyId === "lovelace" ? totalPayment / 1_000_000 : totalPayment,
+      totalPayment: tokenPolicyId === "lovelace" ? Number(totalPayment) / 1_000_000 : Number(totalPayment),
       tickets: Array.from({ length: ticketCount }, (_, i) => ({
         id: `ticket_${Date.now()}_${i}`,
         purchasedAt: new Date().toISOString(),
