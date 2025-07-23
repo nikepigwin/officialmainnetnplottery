@@ -1146,7 +1146,31 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 ❌ Simple transaction failed:', e.message);
         }
         
-        // Now try the full transaction with minimal approach
+        // Now test each component individually
+        console.log('🔍 Testing collectFrom alone...');
+        try {
+          const txWithCollect = await lucid
+            .newTx()
+            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+            .collectFrom([scriptUtxo], redeemerData)
+            .complete();
+          console.log('🔍 ✅ collectFrom worked');
+        } catch (e) {
+          console.log('🔍 ❌ collectFrom failed:', e.message);
+        }
+        
+        console.log('🔍 Testing attachSpendingValidator alone...');
+        try {
+          const txWithValidator = await lucid
+            .newTx()
+            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+            .attachSpendingValidator(validator)
+            .complete();
+          console.log('🔍 ✅ attachSpendingValidator worked');
+        } catch (e) {
+          console.log('🔍 ❌ attachSpendingValidator failed:', e.message);
+        }
+        
         console.log('🔍 Building full transaction...');
         const tx = await lucid
           .newTx()
