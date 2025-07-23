@@ -1079,7 +1079,9 @@ async function buyTicketsForLottery(ticketCount) {
         try {
           if (params.redeemerCbor && typeof params.redeemerCbor === 'string') {
             console.log('🔍 Using CBOR redeemer:', params.redeemerCbor);
-            redeemerData = Data.from(params.redeemerCbor);
+            // Parse CBOR data properly using Lucid's fromHex and fromBytes
+            const redeemerBytes = lucid.utils.fromHex(params.redeemerCbor);
+            redeemerData = Data.fromBytes(redeemerBytes);
           } else {
             throw new Error('No valid CBOR redeemer, using manual construction');
           }
@@ -1099,7 +1101,9 @@ async function buyTicketsForLottery(ticketCount) {
         try {
           if (params.datumCbor && typeof params.datumCbor === 'string') {
             console.log('🔍 Using CBOR datum:', params.datumCbor);
-            datumData = Data.from(params.datumCbor);
+            // Parse CBOR data properly using Lucid's fromHex and fromBytes
+            const datumBytes = lucid.utils.fromHex(params.datumCbor);
+            datumData = Data.fromBytes(datumBytes);
           } else {
             throw new Error('No valid CBOR datum, using manual construction');
           }
