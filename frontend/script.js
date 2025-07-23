@@ -333,8 +333,8 @@ let countdownTimer = null;
 let roundStartTime = null;
 let roundDuration = 3 * 60 * 1000; // 3 minutes in milliseconds
 
-// 🔔 WEBSOCKET NOTIFICATIONS
-let websocket = null;
+// 🔔 WEBSOCKET NOTIFICATIONS REMOVED
+// let websocket = null;
 
 // Initialize Lucid for transaction building
 async function initializeLucid() {
@@ -2166,8 +2166,8 @@ async function init() {
     // Start sales status monitoring
     startSalesStatusMonitoring();
     
-    // 🔔 Connect WebSocket for real-time notifications
-    connectWebSocket();
+    // 🔔 WebSocket removed to eliminate connection errors
+    // connectWebSocket();
     
     // 🕒 Start initial countdown timer
     startCountdownTimer(Date.now());
@@ -2309,76 +2309,76 @@ function stopCountdownTimer() {
   }
 }
 
-// 🔔 WEBSOCKET FUNCTIONS
-function connectWebSocket() {
-  try {
-    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/api/lottery/ws';
-    console.log('🔌 Connecting to WebSocket:', wsUrl);
-    
-    websocket = new WebSocket(wsUrl);
-    
-    websocket.onopen = () => {
-      console.log('✅ WebSocket connected');
-    };
-    
-    websocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📨 WebSocket message:', data);
-        
-        if (data.type === 'pool_update') {
-          // Handle rollover notifications
-          if (data.data.rollover) {
-            showNotification(`🔄 Round rolled over! Pool: ${data.data.poolAmount.toFixed(2)} ADA. Need ${data.data.minimumParticipants - data.data.participantCount} more participants.`, 'info');
-          } else if (data.data.freshRound) {
-            showNotification(`🎰 Fresh round started! Previous round distributed ${data.data.previousRound.pool.toFixed(2)} ADA after ${data.data.previousRound.rollovers} rollovers.`, 'success');
-          }
-          
-          // Update round timer
-          if (data.data.roundNumber) {
-            startCountdownTimer(Date.now());
-          }
-          
-          // Refresh stats
-          refreshStats();
-        } else if (data.type === 'winner_announcement') {
-          // Handle winner announcements
-          const winners = data.data.winners || [];
-          const winnerCount = winners.length;
-          const pool = data.data.totalPool || 0;
-          
-          showNotification(`🏆 Winners selected! ${winnerCount} winners from ${pool.toFixed(2)} ADA pool!`, 'success');
-          
-          // Show individual winners
-          winners.forEach((winner, index) => {
-            setTimeout(() => {
-              showNotification(`${winner.position}. ${winner.address.substring(0, 20)}... won ${winner.amount.toFixed(2)} ADA!`, 'success');
-            }, (index + 1) * 2000);
-          });
-          
-          // Refresh data
-          setTimeout(() => {
-            refreshStats();
-            refreshWinners();
-          }, 1000);
-        }
-      } catch (error) {
-        console.error('❌ Error parsing WebSocket message:', error);
-      }
-    };
-    
-    websocket.onclose = () => {
-      console.log('🔌 WebSocket disconnected, attempting to reconnect...');
-      setTimeout(connectWebSocket, 5000);
-    };
-    
-    websocket.onerror = (error) => {
-      console.error('❌ WebSocket error:', error);
-    };
-  } catch (error) {
-    console.error('❌ Failed to connect WebSocket:', error);
-  }
-}
+// 🔔 WEBSOCKET FUNCTIONS REMOVED (was causing connection errors)
+// function connectWebSocket() {
+//   try {
+//     const wsUrl = API_BASE_URL.replace('http', 'ws') + '/api/lottery/ws';
+//     console.log('🔌 Connecting to WebSocket:', wsUrl);
+//     
+//     websocket = new WebSocket(wsUrl);
+//     
+//     websocket.onopen = () => {
+//       console.log('✅ WebSocket connected');
+//     };
+//     
+//     websocket.onmessage = (event) => {
+//       try {
+//         const data = JSON.parse(event.data);
+//         console.log('📨 WebSocket message:', data);
+//         
+//         if (data.type === 'pool_update') {
+//           // Handle rollover notifications
+//           if (data.data.rollover) {
+//             showNotification(`🔄 Round rolled over! Pool: ${data.data.poolAmount.toFixed(2)} ADA. Need ${data.data.minimumParticipants - data.data.participantCount} more participants.`, 'info');
+//           } else if (data.data.freshRound) {
+//             showNotification(`🎰 Fresh round started! Previous round distributed ${data.data.previousRound.pool.toFixed(2)} ADA after ${data.data.previousRound.rollovers} rollovers.`, 'success');
+//           }
+//           
+//           // Update round timer
+//           if (data.data.roundNumber) {
+//             startCountdownTimer(Date.now());
+//           }
+//           
+//           // Refresh stats
+//           refreshStats();
+//         } else if (data.type === 'winner_announcement') {
+//           // Handle winner announcements
+//           const winners = data.data.winners || [];
+//           const winnerCount = winners.length;
+//           const pool = data.data.totalPool || 0;
+//           
+//           showNotification(`🏆 Winners selected! ${winnerCount} winners from ${pool.toFixed(2)} ADA pool!`, 'success');
+//           
+//           // Show individual winners
+//           winners.forEach((winner, index) => {
+//             setTimeout(() => {
+//               showNotification(`${winner.position}. ${winner.address.substring(0, 20)}... won ${winner.amount.toFixed(2)} ADA!`, 'success');
+//             }, (index + 1) * 2000);
+//           });
+//           
+//           // Refresh data
+//           setTimeout(() => {
+//             refreshStats();
+//             refreshWinners();
+//           }, 1000);
+//         }
+//       } catch (error) {
+//         console.error('❌ Error parsing WebSocket message:', error);
+//       }
+//     };
+//     
+//     websocket.onclose = () => {
+//       console.log('🔌 WebSocket disconnected, attempting to reconnect...');
+//       setTimeout(connectWebSocket, 5000);
+//     };
+//     
+//     websocket.onerror = (error) => {
+//       console.error('❌ WebSocket error:', error);
+//     };
+//   } catch (error) {
+//     console.error('❌ Failed to connect WebSocket:', error);
+//   }
+// }
 
 // Sales status monitoring functions
 function startSalesStatusMonitoring() {
