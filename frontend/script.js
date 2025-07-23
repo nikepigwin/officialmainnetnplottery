@@ -1076,12 +1076,11 @@ async function buyTicketsForLottery(ticketCount) {
         // Try to use CBOR data from backend, fall back to manual construction
         let redeemerData, datumData;
         
-        // Use raw CBOR strings directly to avoid parsing issues
-        console.log('🔍 Using raw CBOR redeemer:', params.redeemerCbor);
+        // Parse CBOR data properly for Lucid
+        console.log('🔍 Using CBOR redeemer:', params.redeemerCbor);
         redeemerData = params.redeemerCbor;
         
-        // Use raw CBOR strings directly to avoid parsing issues
-        console.log('🔍 Using raw CBOR datum:', params.datumCbor);
+        console.log('🔍 Using CBOR datum:', params.datumCbor);
         datumData = params.datumCbor;
         
         console.log('🔍 Converted redeemer:', redeemerData);
@@ -1119,7 +1118,7 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 Error calculating script hash:', e);
         }
         
-        // Build transaction with proper script reference using raw CBOR
+        // Build transaction with proper script reference
         const tx = await lucid
           .newTx()
           .collectFrom([scriptUtxo], redeemerData)
