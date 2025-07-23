@@ -557,7 +557,23 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
     // Instead of building the transaction on backend, return parameters for frontend to build
     console.log("[DEBUG] Returning transaction parameters to frontend for transaction building");
     
-    ctx.response.body = {
+    // Helper function to safely convert BigInt values to strings
+    const safeBigIntToString = (obj: any): any => {
+      if (typeof obj === 'bigint') {
+        return obj.toString();
+      } else if (Array.isArray(obj)) {
+        return obj.map(safeBigIntToString);
+      } else if (obj !== null && typeof obj === 'object') {
+        const result: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+          result[key] = safeBigIntToString(value);
+        }
+        return result;
+      }
+      return obj;
+    };
+    
+    const responseBody = {
       success: true,
       message: `Transaction parameters ready. Frontend will build and sign transaction.`,
       transactionParams: {
@@ -571,10 +587,11 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         scriptAddress: SCRIPT_ADDRESS,
         scriptValidator: SCRIPT_VALIDATOR,
         newDatum: {
-          ...newDatum,
           total_pools: newDatum.total_pools.map(([pid, amt]) => [pid, amt.toString()]),
           total_tickets: newDatum.total_tickets.toString(),
-          ticket_prices: newDatum.ticket_prices.map(([pid, price]) => [pid, price.toString()])
+          ticket_prices: newDatum.ticket_prices.map(([pid, price]) => [pid, price.toString()]),
+          accepted_tokens: newDatum.accepted_tokens,
+          prize_split: newDatum.prize_split
         },
         redeemer: {
           constructor: 1,
@@ -595,6 +612,9 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
         tokenPolicyId: tokenPolicyId
       }))
     };
+    
+    // Use safe serialization to avoid BigInt errors
+    ctx.response.body = safeBigIntToString(responseBody);
   } catch (err) {
     let errorMsg;
     try {
