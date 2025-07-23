@@ -1065,6 +1065,7 @@ async function buyTicketsForLottery(ticketCount) {
         
         // Build the transaction with proper wallet context
         console.log('🟢 Building transaction with Lucid...');
+        const Data = window.Lucid.Data;
         const tx = await lucid
           .newTx()
           .collectFrom([scriptUtxo], Data.to(params.redeemer))
