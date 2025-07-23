@@ -879,20 +879,32 @@ router.post("/api/lottery/confirm-ticket", async (ctx) => {
     console.log('🔍 [CONFIRM-TICKET] Method:', ctx.request.method);
     console.log('🔍 [CONFIRM-TICKET] Content-Type:', ctx.request.headers.get('content-type'));
     
+    // Simplified body parsing
     let body;
-    if (ctx.state.body) {
-      body = ctx.state.body;
-      console.log('🔍 [CONFIRM-TICKET] Using ctx.state.body');
-    } else {
+    let address, ticketCount, txHash, poolWalletAddress;
+    
+    try {
       const bodyResult = await ctx.request.body({ type: "json" });
-      body = bodyResult.value;
-      console.log('🔍 [CONFIRM-TICKET] Using ctx.request.body');
+      body = await bodyResult.value; // Ensure we await the Promise
+      console.log('🔍 [CONFIRM-TICKET] Raw body:', body);
+      console.log('🔍 [CONFIRM-TICKET] Body type:', typeof body);
+      
+      if (body && typeof body === 'object') {
+        address = body.address;
+        ticketCount = body.ticketCount;
+        txHash = body.txHash;
+        poolWalletAddress = body.poolWalletAddress;
+        console.log('🔍 [CONFIRM-TICKET] Body parsing SUCCESS');
+      } else {
+        console.error('🔍 [CONFIRM-TICKET] Body is not a valid object:', body);
+        throw new Error('Invalid body format');
+      }
+    } catch (bodyError: any) {
+      console.error('🔍 [CONFIRM-TICKET] Body parsing failed:', bodyError.message);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Failed to parse request body: " + bodyError.message };
+      return;
     }
-    
-    console.log('🔍 [CONFIRM-TICKET] Raw body:', body);
-    console.log('🔍 [CONFIRM-TICKET] Body type:', typeof body);
-    
-    const { address, ticketCount, txHash, poolWalletAddress } = body;
     
     console.log('🔍 [CONFIRM-TICKET] Destructured values:', {
       address: address,
