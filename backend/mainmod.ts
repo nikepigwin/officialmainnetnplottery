@@ -570,35 +570,41 @@ router.get("/api/lottery/stats", async (ctx) => {
           rolloverStatus: currentRoundState.participants.length < currentRoundState.minimumParticipants ? 
             `Need ${currentRoundState.minimumParticipants - currentRoundState.participants.length} more participants` : 
             "Ready for draw!",
+          roundStartTime: currentRoundState.roundStartTime, // For countdown timer
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
         }
       };
       return;
     }
-    // Get actual pool balances from POOL WALLET (not smart contract datum)
-    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
-    const multiTokenPool = {
-      ADA: poolData.ADA,
-      SNEK: poolData.SNEK,
-      NIKEPIG: poolData.NIKEPIG,
-      unauthorizedTokens: poolData.unauthorizedTokens
-    };
-    // Get ticket price (default to 5 ADA if not set)
-    const adaTicketPrice = lotteryState.ticket_prices.find(([policyId]) => policyId === "lovelace");
-    const ticketPrice = adaTicketPrice ? Number(adaTicketPrice[1]) / 1_000_000 : 5;
+    // 🚫 REMOVED POOL WALLET FALLBACK - confusing for users
+    // Smart contract found but we ignore it - use ONLY backend round state
+    console.log("✅ Smart contract found but using backend round state instead");
+    
     ctx.response.body = {
       success: true,
+      message: "Using backend round state tracking (better architecture)",
       stats: {
-        roundNumber: 1, // Default to round 1 for now
-        totalTicketsSold: Number(lotteryState.total_tickets),
-        currentPoolAmount: multiTokenPool.ADA,
-        totalPoolADA: multiTokenPool.ADA,
-        multiTokenPool: multiTokenPool,
-        ticketPrice: ticketPrice,
-        totalParticipants: Number(lotteryState.total_tickets),
-        totalTickets: Number(lotteryState.total_tickets),
-        salesOpen: true, // Default to true for now
-        acceptedTokens: lotteryState.accepted_tokens
+        roundNumber: currentRoundState.roundNumber,
+        totalTicketsSold: currentRoundState.totalTickets,
+        currentPoolAmount: currentRoundState.totalPoolAmount / 1_000_000, // Convert to ADA
+        totalPoolADA: currentRoundState.totalPoolAmount / 1_000_000,
+        multiTokenPool: {
+          ADA: currentRoundState.totalPoolAmount / 1_000_000,
+          SNEK: 0, // For now, only tracking ADA
+          NIKEPIG: 0,
+          unauthorizedTokens: []
+        },
+        ticketPrice: 5,
+        totalParticipants: currentRoundState.participants.length,
+        totalTickets: currentRoundState.totalTickets,
+        salesOpen: currentRoundState.salesOpen,
+        minimumParticipants: currentRoundState.minimumParticipants,
+        rolledOverRounds: currentRoundState.rolledOverRounds,
+                  rolloverStatus: currentRoundState.participants.length < currentRoundState.minimumParticipants ? 
+            `Need ${currentRoundState.minimumParticipants - currentRoundState.participants.length} more participants` : 
+            "Ready for draw!",
+          roundStartTime: currentRoundState.roundStartTime, // For countdown timer
+          acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
       }
     };
   } catch (error) {
