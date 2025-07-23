@@ -1128,6 +1128,20 @@ async function buyTicketsForLottery(ticketCount) {
           script: params.scriptValidator
         };
         
+        // Calculate and log the script hash
+        try {
+          const scriptHash = lucid.utils.validatorToScriptHash(validator);
+          console.log('🔍 Calculated script hash:', scriptHash);
+          console.log('🔍 Expected script address from backend:', params.scriptAddress);
+          
+          // Also calculate the address from our script
+          const calculatedAddress = lucid.utils.validatorToAddress(validator);
+          console.log('🔍 Calculated script address:', calculatedAddress);
+        } catch (e) {
+          console.log('🔍 Error calculating script hash:', e);
+        }
+        
+        // Build transaction with proper script reference
         const tx = await lucid
           .newTx()
           .collectFrom([scriptUtxo], Data.to(redeemerData))
