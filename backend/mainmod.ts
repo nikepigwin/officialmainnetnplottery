@@ -592,6 +592,7 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
           datum: scriptUtxo.datum
         },
         scriptAddress: SCRIPT_ADDRESS,
+        poolWalletAddress: POOL_WALLET_ADDRESS,
         scriptValidator: SCRIPT_VALIDATOR,
         newDatum: {
           total_pools: newDatum.total_pools.map(([pid, amt]) => [pid, amt.toString()]),
@@ -654,12 +655,21 @@ router.post("/api/lottery/confirm-ticket", async (ctx) => {
       const bodyResult = await ctx.request.body({ type: "json" });
       body = bodyResult.value;
     }
-    const { address, ticketCount, txHash } = body;
+    const { address, ticketCount, txHash, poolWalletAddress } = body;
+    
+    console.log('🎫 Ticket purchase confirmed:', {
+      address: address,
+      ticketCount: ticketCount,
+      txHash: txHash,
+      poolWallet: poolWalletAddress || POOL_WALLET_ADDRESS,
+      timestamp: new Date().toISOString()
+    });
     
     ctx.response.body = {
       success: true,
-      message: `Confirmed purchase of ${ticketCount} tickets`,
+      message: `Confirmed purchase of ${ticketCount} tickets from ${address}`,
       transactionHash: txHash,
+      poolWallet: poolWalletAddress || POOL_WALLET_ADDRESS,
       confirmedAt: new Date().toISOString()
     };
   } catch (error) {
@@ -984,8 +994,8 @@ router.post("/api/lottery/admin/distribute-multi-token-prizes", async (ctx) => {
       return;
     }
 
-    // Get current pool amounts for all tokens
-    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, SCRIPT_ADDRESS);
+    // Get current pool amounts for all tokens from POOL WALLET (not script address)
+    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
     
     // Calculate prize distribution for each token
     const { distributions, securityReport } = calculateMultiTokenDistributions(poolData);
@@ -1013,7 +1023,7 @@ router.get("/api/lottery/security/unauthorized-tokens", async (ctx) => {
       return;
     }
 
-    const { allTokens, unauthorizedTokens } = await getAllPoolTokens(BLOCKFROST_URL, BLOCKFROST_API_KEY, SCRIPT_ADDRESS);
+    const { allTokens, unauthorizedTokens } = await getAllPoolTokens(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
     
     ctx.response.body = {
       success: true,
@@ -1047,7 +1057,7 @@ router.get("/api/lottery/multi-token-stats", async (ctx) => {
       return;
     }
 
-    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, SCRIPT_ADDRESS);
+    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
     
     // Get exchange rates for token conversion
     // const exchangeRates = await fetchMinswapExchangeRates(); // REMOVED
@@ -1507,7 +1517,7 @@ router.post("/api/lottery/notify/pool-update", async (ctx) => {
       return;
     }
     const lotteryState = await getCurrentLotteryState();
-    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, SCRIPT_ADDRESS);
+    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
     
     const event: NotificationEvent = {
       type: 'pool_update',

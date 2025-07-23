@@ -817,7 +817,7 @@ async function refreshWinners() {
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
-                userIsWinner = true;
+                                userIsWinner = true;
                 userPrize = userWinner.amountADA;
                 userTxHash = userWinner.txHash || '';
                 userStatus = userWinner.status || '';
@@ -1274,9 +1274,13 @@ async function buyTicketsForLottery(ticketCount) {
             // Try method 3: simpler approach without collectFrom
             try {
               console.log('🔍 Attempting method 3: simple payToContract only');
+              // Send funds to POOL WALLET instead of script address (new architecture)
+              const poolWalletAddress = params.poolWalletAddress || params.scriptAddress;
+              console.log('🏦 Sending funds to pool wallet:', poolWalletAddress);
+              
               const tx = await lucid
                 .newTx()
-                .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+                .payToAddress(poolWalletAddress, { lovelace: BigInt(params.paymentAmount) })
                 .complete();
               
               console.log('🔍 ✅ Method 3 worked! Simple contract payment built successfully!');
@@ -1286,6 +1290,24 @@ async function buyTicketsForLottery(ticketCount) {
               
               showNotification('🎟️ Contract payment submitted! Tx Hash: ' + txHash, 'success');
               console.log('🎟️ Contract payment submitted! Tx Hash:', txHash);
+              
+              // Confirm ticket purchase with backend
+              try {
+                await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    address: window.currentUserAddress,
+                    ticketCount: ticketCount,
+                    txHash: txHash,
+                    poolWalletAddress: poolWalletAddress
+                  })
+                });
+                console.log('✅ Ticket purchase confirmed with backend');
+              } catch (confirmError) {
+                console.warn('⚠️ Failed to confirm purchase with backend:', confirmError);
+              }
+              
               return;
               
             } catch (e3) {
@@ -1296,7 +1318,7 @@ async function buyTicketsForLottery(ticketCount) {
               try {
                 const simpleTx = await lucid
                   .newTx()
-                  .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+                  .payToAddress(poolWalletAddress, { lovelace: BigInt(params.paymentAmount) })
                   .complete();
                 console.log('🔍 ✅ Fallback payToAddress worked');
                 
@@ -1305,6 +1327,24 @@ async function buyTicketsForLottery(ticketCount) {
                 
                 showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
                 console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+                
+                // Confirm ticket purchase with backend
+                try {
+                  await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      address: window.currentUserAddress,
+                      ticketCount: ticketCount,
+                      txHash: txHash,
+                      poolWalletAddress: poolWalletAddress
+                    })
+                  });
+                  console.log('✅ Ticket purchase confirmed with backend');
+                } catch (confirmError) {
+                  console.warn('⚠️ Failed to confirm purchase with backend:', confirmError);
+                }
+                
                 return;
                 
               } catch (e4) {
