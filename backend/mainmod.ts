@@ -874,15 +874,56 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
 // Confirm ticket purchase endpoint
 router.post("/api/lottery/confirm-ticket", async (ctx) => {
   try {
+    console.log('🔍 [CONFIRM-TICKET] Request received');
+    console.log('🔍 [CONFIRM-TICKET] Headers:', Object.fromEntries(ctx.request.headers.entries()));
+    console.log('🔍 [CONFIRM-TICKET] Method:', ctx.request.method);
+    console.log('🔍 [CONFIRM-TICKET] Content-Type:', ctx.request.headers.get('content-type'));
+    
     let body;
     if (ctx.state.body) {
       body = ctx.state.body;
+      console.log('🔍 [CONFIRM-TICKET] Using ctx.state.body');
     } else {
       const bodyResult = await ctx.request.body({ type: "json" });
       body = bodyResult.value;
+      console.log('🔍 [CONFIRM-TICKET] Using ctx.request.body');
     }
+    
+    console.log('🔍 [CONFIRM-TICKET] Raw body:', body);
+    console.log('🔍 [CONFIRM-TICKET] Body type:', typeof body);
+    
     const { address, ticketCount, txHash, poolWalletAddress } = body;
     
+    console.log('🔍 [CONFIRM-TICKET] Destructured values:', {
+      address: address,
+      ticketCount: ticketCount,
+      txHash: txHash,
+      poolWalletAddress: poolWalletAddress
+    });
+    
+    // Validate required fields
+    if (!address || typeof address !== 'string') {
+      console.error('❌ [CONFIRM-TICKET] Invalid address:', address);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Invalid or missing address" };
+      return;
+    }
+    
+    if (!ticketCount || typeof ticketCount !== 'number' || ticketCount < 1) {
+      console.error('❌ [CONFIRM-TICKET] Invalid ticketCount:', ticketCount);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Invalid or missing ticketCount" };
+      return;
+    }
+    
+    if (!txHash || typeof txHash !== 'string') {
+      console.error('❌ [CONFIRM-TICKET] Invalid txHash:', txHash);
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Invalid or missing txHash" };
+      return;
+    }
+    
+    console.log('✅ [CONFIRM-TICKET] Validation passed');
     console.log('🎫 Ticket purchase confirmed:', {
       address: address,
       ticketCount: ticketCount,
