@@ -170,6 +170,8 @@ interface BackendRoundState {
   totalPoolAmount: number; // in lovelace
   salesOpen: boolean;
   roundDuration: number; // milliseconds (3 minutes = 180000ms)
+  minimumParticipants: number; // minimum participants needed to process round
+  rolledOverRounds: number; // count of how many rounds have been rolled over
 }
 
 let currentRoundState: BackendRoundState = {
@@ -179,7 +181,9 @@ let currentRoundState: BackendRoundState = {
   totalTickets: 0,
   totalPoolAmount: 0,
   salesOpen: true,
-  roundDuration: 3 * 60 * 1000 // 3 minutes for testing
+  roundDuration: 3 * 60 * 1000, // 3 minutes for testing
+  minimumParticipants: 4, // need at least 4 participants to process round
+  rolledOverRounds: 0 // how many times this pool has rolled over
 };
 
 // 🎰 AUTOMATED ROUND LIFECYCLE (3-minute cycles for testing)
@@ -262,25 +266,64 @@ async function processAutomatedRound() {
       currentRoundState.salesOpen = false;
       console.log("🚫 Sales closed");
       
-      // 2. Select winners (if there are participants)
+      // 2. 🔄 CHECK ROLLOVER CONDITION: Need minimum participants
+      const participantCount = currentRoundState.participants.length;
+      const poolADA = currentRoundState.totalPoolAmount / 1_000_000;
+      
+      if (participantCount < currentRoundState.minimumParticipants) {
+        // 🔄 ROLL OVER TO NEXT ROUND
+        currentRoundState.rolledOverRounds++;
+        console.log(`🔄 ROLLOVER: Only ${participantCount} participants (need ${currentRoundState.minimumParticipants})`);
+        console.log(`💰 Pool of ${poolADA.toFixed(2)} ADA rolling over to next round (rollover #${currentRoundState.rolledOverRounds})`);
+        
+        // Keep participants and pool, but advance round number and reset timer
+        currentRoundState.roundNumber++;
+        currentRoundState.roundStartTime = Date.now();
+        currentRoundState.salesOpen = true;
+        
+        // Broadcast rollover notification
+        broadcastNotification({
+          type: 'pool_update',
+          message: `Round ${currentRoundState.roundNumber - 1} rolled over! Pool grows to ${poolADA.toFixed(2)} ADA. Need ${currentRoundState.minimumParticipants - participantCount} more participants.`,
+          data: {
+            roundNumber: currentRoundState.roundNumber,
+            salesOpen: true,
+            rollover: true,
+            rolledOverRounds: currentRoundState.rolledOverRounds,
+            participantCount: participantCount,
+            minimumParticipants: currentRoundState.minimumParticipants,
+            poolAmount: poolADA,
+            message: `Pool rolled over! Bigger prizes await!`
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        console.log(`🎰 ROUND ${currentRoundState.roundNumber} STARTED (rollover #${currentRoundState.rolledOverRounds}) - Pool: ${poolADA.toFixed(2)} ADA, Participants: ${participantCount}`);
+        return; // Exit early, don't process winners
+      }
+      
+      // 3. ✅ ENOUGH PARTICIPANTS: Select winners and process round
+      console.log(`✅ PROCESSING ROUND: ${participantCount} participants (minimum met!)`);
       const winners = selectRoundWinners(currentRoundState.participants);
       
       if (winners.length > 0) {
-        console.log(`🎉 Selected ${winners.length} winners for round ${currentRoundState.roundNumber}:`);
+        console.log(`🎉 Selected ${winners.length} winners for round ${currentRoundState.roundNumber} (after ${currentRoundState.rolledOverRounds} rollovers):`);
         winners.forEach(winner => {
           console.log(`   ${winner.position}. ${winner.address}: ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
         });
         
-        // 3. Broadcast winner announcement
+        // 4. Broadcast winner announcement
         broadcastNotification({
           type: 'winner_announcement',
-          message: `Round ${currentRoundState.roundNumber} winners selected!`,
+          message: `Round ${currentRoundState.roundNumber} winners selected! Pool: ${poolADA.toFixed(2)} ADA (after ${currentRoundState.rolledOverRounds} rollovers)`,
           data: {
             roundNumber: currentRoundState.roundNumber,
             winners: winners,
-            totalPool: currentRoundState.totalPoolAmount / 1_000_000,
-            totalParticipants: currentRoundState.participants.length,
-            totalTickets: currentRoundState.totalTickets
+            totalPool: poolADA,
+            totalParticipants: participantCount,
+            totalTickets: currentRoundState.totalTickets,
+            rolledOverRounds: currentRoundState.rolledOverRounds,
+            finalRound: true
           },
           timestamp: new Date().toISOString()
         });
@@ -288,9 +331,10 @@ async function processAutomatedRound() {
         console.log("⚠️ No participants - no winners to announce");
       }
       
-      // 4. Reset for new round
+      // 5. 🏆 RESET FOR FRESH NEW ROUND (only after winners selected)
       const previousRound = currentRoundState.roundNumber;
-      const previousPool = currentRoundState.totalPoolAmount / 1_000_000;
+      const previousPool = poolADA;
+      const previousRollovers = currentRoundState.rolledOverRounds;
       
       currentRoundState = {
         roundNumber: currentRoundState.roundNumber + 1,
@@ -299,21 +343,25 @@ async function processAutomatedRound() {
         totalTickets: 0,
         totalPoolAmount: 0,
         salesOpen: true,
-        roundDuration: 3 * 60 * 1000 // 3 minutes for testing
+        roundDuration: 3 * 60 * 1000, // 3 minutes for testing
+        minimumParticipants: 4, // need at least 4 participants to process round
+        rolledOverRounds: 0 // reset rollover count for fresh round
       };
       
-      console.log(`🔄 NEW ROUND ${currentRoundState.roundNumber} STARTED! Sales open.`);
+      console.log(`🔄 FRESH NEW ROUND ${currentRoundState.roundNumber} STARTED! Previous round processed after ${previousRollovers} rollovers.`);
       
-      // 5. Broadcast new round announcement
+      // 6. Broadcast fresh round announcement
       broadcastNotification({
         type: 'pool_update',
-        message: `Round ${currentRoundState.roundNumber} started! Previous round had ${previousPool.toFixed(2)} ADA pool.`,
+        message: `Fresh Round ${currentRoundState.roundNumber} started! Previous round: ${previousPool.toFixed(2)} ADA distributed after ${previousRollovers} rollovers.`,
         data: {
           roundNumber: currentRoundState.roundNumber,
           salesOpen: true,
+          freshRound: true,
           previousRound: {
             number: previousRound,
             pool: previousPool,
+            rollovers: previousRollovers,
             winners: winners
           }
         },
@@ -517,6 +565,11 @@ router.get("/api/lottery/stats", async (ctx) => {
           totalParticipants: currentRoundState.participants.length,
           totalTickets: currentRoundState.totalTickets,
           salesOpen: currentRoundState.salesOpen,
+          minimumParticipants: currentRoundState.minimumParticipants,
+          rolledOverRounds: currentRoundState.rolledOverRounds,
+          rolloverStatus: currentRoundState.participants.length < currentRoundState.minimumParticipants ? 
+            `Need ${currentRoundState.minimumParticipants - currentRoundState.participants.length} more participants` : 
+            "Ready for draw!",
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
         }
       };
