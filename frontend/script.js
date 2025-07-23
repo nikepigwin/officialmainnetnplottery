@@ -1137,6 +1137,15 @@ async function buyTicketsForLottery(ticketCount) {
           // Also calculate the address from our script
           const calculatedAddress = lucid.utils.validatorToAddress(validator);
           console.log('🔍 Calculated script address:', calculatedAddress);
+          
+          // Check which address has UTxOs
+          console.log('🔍 Checking UTxOs at calculated address...');
+          const calculatedUtxos = await lucid.utxosAt(calculatedAddress);
+          console.log('🔍 UTxOs at calculated address:', calculatedUtxos.length);
+          
+          console.log('🔍 Checking UTxOs at backend address...');
+          const backendUtxos = await lucid.utxosAt(params.scriptAddress);
+          console.log('🔍 UTxOs at backend address:', backendUtxos.length);
         } catch (e) {
           console.log('🔍 Error calculating script hash:', e);
         }
