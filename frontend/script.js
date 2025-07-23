@@ -1090,33 +1090,15 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Script UTxO:', scriptUtxo);
         console.log('🔍 Payment amount:', params.paymentAmount, typeof params.paymentAmount);
         
-        // Create validator object
+        // Create validator object - convert hex string to bytes
         const validator = {
           type: "PlutusV3",
           script: params.scriptValidator
         };
         
-        // Calculate and log the script hash
-        try {
-          const scriptHash = lucid.utils.validatorToScriptHash(validator);
-          console.log('🔍 Calculated script hash:', scriptHash);
-          console.log('🔍 Expected script address from backend:', params.scriptAddress);
-          
-          // Also calculate the address from our script
-          const calculatedAddress = lucid.utils.validatorToAddress(validator);
-          console.log('🔍 Calculated script address:', calculatedAddress);
-          
-          // Check which address has UTxOs
-          console.log('🔍 Checking UTxOs at calculated address...');
-          const calculatedUtxos = await lucid.utxosAt(calculatedAddress);
-          console.log('🔍 UTxOs at calculated address:', calculatedUtxos.length);
-          
-          console.log('🔍 Checking UTxOs at backend address...');
-          const backendUtxos = await lucid.utxosAt(params.scriptAddress);
-          console.log('🔍 UTxOs at backend address:', backendUtxos.length);
-        } catch (e) {
-          console.log('🔍 Error calculating script hash:', e);
-        }
+        // Skip script hash calculation for now and use backend address directly
+        console.log('🔍 Skipping script hash calculation, using backend address directly');
+        console.log('🔍 Using script address from backend:', params.scriptAddress);
         
         // Build transaction with proper script reference
         const tx = await lucid
