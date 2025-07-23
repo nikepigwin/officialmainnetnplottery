@@ -202,6 +202,28 @@ header {
     width: 100%;
 }
 
+/* Total Pool Display */
+.pool-total-container {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.pool-total-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3BC117;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.pool-total-label {
+    font-size: 0.8rem;
+    color: #b8b8b8;
+    font-weight: 500;
+}
+
 /* Slides 2-4: Single token display */
 .pool-single-token {
     text-align: center;

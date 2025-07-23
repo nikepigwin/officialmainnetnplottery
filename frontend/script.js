@@ -545,6 +545,10 @@ function formatADA(amount) {
 }
 
 function formatAddress(address) {
+    if (!address || typeof address !== 'string') {
+        console.log('🔍 formatAddress received invalid address:', address);
+        return 'Unknown Address';
+    }
     if (address.length > 20) {
         return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
     }
