@@ -601,6 +601,8 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
             { int: ticketCount.toString() }
           ]
         },
+        redeemerCbor: redeemerPlutus,
+        datumCbor: datumPlutus,
         paymentAmount: totalPayment.toString()
       },
       tokenPolicyId: tokenPolicyId,

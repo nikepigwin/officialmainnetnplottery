@@ -1068,21 +1068,35 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Transaction params received:', params);
         const Data = window.Lucid.Data;
         
-        // Convert redeemer from backend format to Lucid format
-        const redeemerData = new Data.Constr(params.redeemer.constructor, [
-          BigInt(params.redeemer.fields[0].int),  // ticket price
-          params.redeemer.fields[1].bytes,        // token policy id  
-          BigInt(params.redeemer.fields[2].int)   // ticket count
-        ]);
+        // Use pre-built CBOR data from backend if available
+        let redeemerData, datumData;
         
-        // Convert newDatum to proper Lucid format
-        const datumData = {
-          total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
-          total_tickets: BigInt(params.newDatum.total_tickets),
-          ticket_prices: params.newDatum.ticket_prices.map(([pid, price]) => [pid, BigInt(price)]),
-          accepted_tokens: params.newDatum.accepted_tokens,
-          prize_split: params.newDatum.prize_split
-        };
+        if (params.redeemerCbor) {
+          redeemerData = Data.from(params.redeemerCbor);
+        } else {
+          // Construct redeemer manually as a simple object
+          redeemerData = {
+            constructor: params.redeemer.constructor,
+            fields: [
+              BigInt(params.redeemer.fields[0].int),
+              params.redeemer.fields[1].bytes,
+              BigInt(params.redeemer.fields[2].int)
+            ]
+          };
+        }
+        
+        if (params.datumCbor) {
+          datumData = Data.from(params.datumCbor);
+        } else {
+          // Convert newDatum to proper Lucid format
+          datumData = {
+            total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
+            total_tickets: BigInt(params.newDatum.total_tickets),
+            ticket_prices: params.newDatum.ticket_prices.map(([pid, price]) => [pid, BigInt(price)]),
+            accepted_tokens: params.newDatum.accepted_tokens,
+            prize_split: params.newDatum.prize_split
+          };
+        }
         
         console.log('🔍 Converted redeemer:', redeemerData);
         console.log('🔍 Converted datum:', datumData);
