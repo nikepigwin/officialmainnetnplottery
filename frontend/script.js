@@ -1065,11 +1065,32 @@ async function buyTicketsForLottery(ticketCount) {
         
         // Build the transaction with proper wallet context
         console.log('🟢 Building transaction with Lucid...');
+        console.log('🔍 Transaction params received:', params);
         const Data = window.Lucid.Data;
+        
+        // Convert redeemer from backend format to Lucid format
+        const redeemerData = new Data.Constr(params.redeemer.constructor, [
+          BigInt(params.redeemer.fields[0].int),  // ticket price
+          params.redeemer.fields[1].bytes,        // token policy id  
+          BigInt(params.redeemer.fields[2].int)   // ticket count
+        ]);
+        
+        // Convert newDatum to proper Lucid format
+        const datumData = {
+          total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
+          total_tickets: BigInt(params.newDatum.total_tickets),
+          ticket_prices: params.newDatum.ticket_prices.map(([pid, price]) => [pid, BigInt(price)]),
+          accepted_tokens: params.newDatum.accepted_tokens,
+          prize_split: params.newDatum.prize_split
+        };
+        
+        console.log('🔍 Converted redeemer:', redeemerData);
+        console.log('🔍 Converted datum:', datumData);
+        
         const tx = await lucid
           .newTx()
-          .collectFrom([scriptUtxo], Data.to(params.redeemer))
-          .payToContract(params.scriptAddress, { inline: Data.to(params.newDatum) }, { lovelace: BigInt(params.paymentAmount) })
+          .collectFrom([scriptUtxo], Data.to(redeemerData))
+          .payToContract(params.scriptAddress, { inline: Data.to(datumData) }, { lovelace: BigInt(params.paymentAmount) })
           .attachSpendingValidator({ type: "PlutusV2", script: params.scriptValidator })
           .complete();
         
