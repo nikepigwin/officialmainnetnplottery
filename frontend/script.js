@@ -1117,11 +1117,30 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Script UTxO:', scriptUtxo);
         console.log('🔍 Payment amount:', params.paymentAmount, typeof params.paymentAmount);
         
-        // Create validator object - convert hex string to bytes
-        const validator = {
-          type: "PlutusV3",
-          script: params.scriptValidator
-        };
+        // Try different validator formats to find what works
+        let validator;
+        try {
+          // Try as a native script first
+          validator = {
+            type: "Native",
+            script: params.scriptValidator
+          };
+          console.log('🔍 Trying Native script type');
+        } catch (e) {
+          console.log('🔍 Native script failed, trying PlutusV2');
+          try {
+            validator = {
+              type: "PlutusV2", 
+              script: params.scriptValidator
+            };
+          } catch (e2) {
+            console.log('🔍 PlutusV2 failed, using PlutusV3');
+            validator = {
+              type: "PlutusV3",
+              script: params.scriptValidator
+            };
+          }
+        }
         
         // Skip script hash calculation for now and use backend address directly
         console.log('🔍 Skipping script hash calculation, using backend address directly');
@@ -1169,6 +1188,18 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 ✅ attachSpendingValidator worked');
         } catch (e) {
           console.log('🔍 ❌ attachSpendingValidator failed:', e.message);
+        }
+        
+        console.log('🔍 Testing transaction without validator...');
+        try {
+          const txWithoutValidator = await lucid
+            .newTx()
+            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+            .collectFrom([scriptUtxo], redeemerData)
+            .complete();
+          console.log('🔍 ✅ Transaction without validator worked!');
+        } catch (e) {
+          console.log('🔍 ❌ Transaction without validator failed:', e.message);
         }
         
         console.log('🔍 Building full transaction...');
