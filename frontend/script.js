@@ -1185,7 +1185,26 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 ❌ Transaction without validator failed:', e.message);
         }
         
-        console.log('🔍 Building full transaction...');
+        console.log('🔍 Trying simplest possible approach - basic payment only...');
+        try {
+          const simpleTx = await lucid
+            .newTx()
+            .payTo(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+            .complete();
+          console.log('🔍 ✅ Simple payTo worked');
+          
+          const signedTx = await simpleTx.sign().complete();
+          const txHash = await signedTx.submit();
+          
+          showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
+          console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+          return;
+          
+        } catch (e) {
+          console.log('🔍 ❌ Simple payTo failed:', e.message);
+        }
+        
+        console.log('🔍 Building full transaction - last attempt...');
         const tx = await lucid
           .newTx()
           .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
