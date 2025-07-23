@@ -660,10 +660,34 @@ async function refreshStats() {
         console.log('🔄 Refreshing lottery stats...');
         const stats = await getLotteryStats();
         console.log('📊 Stats received:', stats);
-        // Update stats display
-        if (roundNumber) roundNumber.textContent = stats.roundNumber || '-';
-        if (totalParticipants) totalParticipants.textContent = stats.totalParticipants || '-';
-        if (totalTickets) totalTickets.textContent = stats.totalTickets || '-';
+        // Update stats display with detailed logging
+        console.log('🔍 Updating stats display with:', { 
+            roundNumber: stats.roundNumber,
+            totalParticipants: stats.totalParticipants, 
+            totalTickets: stats.totalTickets,
+            salesOpen: stats.salesOpen
+        });
+        
+        if (roundNumber) {
+            roundNumber.textContent = stats.roundNumber || 1; // Default to 1 if not set
+            console.log('✅ Updated roundNumber:', roundNumber.textContent);
+        } else {
+            console.log('❌ roundNumber element not found');
+        }
+        
+        if (totalParticipants) {
+            totalParticipants.textContent = stats.totalParticipants || 0;
+            console.log('✅ Updated totalParticipants:', totalParticipants.textContent);
+        } else {
+            console.log('❌ totalParticipants element not found');
+        }
+        
+        if (totalTickets) {
+            totalTickets.textContent = stats.totalTickets || 0;
+            console.log('✅ Updated totalTickets:', totalTickets.textContent);
+        } else {
+            console.log('❌ totalTickets element not found');
+        }
         if (timeUntilDraw) timeUntilDraw.textContent = stats.timeUntilDrawFormatted || '-';
         if (lotteryStatus) {
             lotteryStatus.textContent = stats.salesOpen ? 'Open' : 'Closed';
@@ -761,6 +785,26 @@ async function refreshWinners() {
             historicalWinnersData: historicalWinners
         });
         
+        // Flatten historical winners structure - backend returns nested structure
+        let flatHistoricalWinners = [];
+        if (historicalWinners && Array.isArray(historicalWinners)) {
+            console.log('🔍 Processing historical winners structure...');
+            historicalWinners.forEach(round => {
+                if (round.winners && Array.isArray(round.winners)) {
+                    round.winners.forEach(winner => {
+                        flatHistoricalWinners.push({
+                            ...winner,
+                            roundNumber: round.roundNumber,
+                            timestamp: round.drawDate || winner.claimedAt,
+                            txHash: winner.transactionId,
+                            amountADA: winner.amount // Backend uses 'amount', frontend expects 'amountADA'
+                        });
+                    });
+                }
+            });
+        }
+        console.log('🔍 Flattened historical winners:', flatHistoricalWinners);
+        
         // Check if current user is a winner (for winner banner)
         let userIsWinner = false;
         let userPrize = 0;
@@ -773,16 +817,16 @@ async function refreshWinners() {
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
-                                userIsWinner = true;
+                userIsWinner = true;
                 userPrize = userWinner.amountADA;
                 userTxHash = userWinner.txHash || '';
                 userStatus = userWinner.status || '';
             }
         }
         
-        // Check historical winners for user (in case they won in a previous round)
-        if (!userIsWinner && historicalWinners && historicalWinners.length > 0) {
-            const userWinner = historicalWinners.find(winner => 
+        // Check flattened historical winners for user 
+        if (!userIsWinner && flatHistoricalWinners && flatHistoricalWinners.length > 0) {
+            const userWinner = flatHistoricalWinners.find(winner => 
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
@@ -802,12 +846,12 @@ async function refreshWinners() {
 
         // --- Historical Winners (Scroll Container) ---
         const historicalWinnersList = document.getElementById('historicalWinnersList');
-        if (!historicalWinners || historicalWinners.length === 0) {
+        if (!flatHistoricalWinners || flatHistoricalWinners.length === 0) {
             historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
         } else {
             // Group winners by transaction hash (same round = same transaction)
             const groupedByTx = {};
-            historicalWinners.forEach(winner => {
+            flatHistoricalWinners.forEach(winner => {
                 const txHash = winner.txHash || 'no-tx';
                 if (!groupedByTx[txHash]) {
                     groupedByTx[txHash] = {

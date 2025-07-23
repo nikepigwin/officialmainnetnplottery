@@ -318,6 +318,7 @@ router.get("/api/lottery/stats", async (ctx) => {
         success: true, // Changed to true to allow frontend to work
         message: "Contract not initialized - showing default stats",
         stats: {
+          roundNumber: 1, // Default to round 1
           totalTicketsSold: 0,
           currentPoolAmount: 0,
           totalPoolADA: 0,
@@ -330,6 +331,7 @@ router.get("/api/lottery/stats", async (ctx) => {
           ticketPrice: 5,
           totalParticipants: 0,
           totalTickets: 0,
+          salesOpen: true, // Default to true
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
         }
       };
@@ -365,6 +367,7 @@ router.get("/api/lottery/stats", async (ctx) => {
     ctx.response.body = {
       success: true,
       stats: {
+        roundNumber: 1, // Default to round 1 for now
         totalTicketsSold: Number(lotteryState.total_tickets),
         currentPoolAmount: multiTokenPool.ADA,
         totalPoolADA: multiTokenPool.ADA,
@@ -372,6 +375,7 @@ router.get("/api/lottery/stats", async (ctx) => {
         ticketPrice: ticketPrice,
         totalParticipants: Number(lotteryState.total_tickets),
         totalTickets: Number(lotteryState.total_tickets),
+        salesOpen: true, // Default to true for now
         acceptedTokens: lotteryState.accepted_tokens
       }
     };
