@@ -1127,12 +1127,32 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Skipping script hash calculation, using backend address directly');
         console.log('🔍 Using script address from backend:', params.scriptAddress);
         
-        // Build transaction with proper script reference
+        // Build transaction step by step to isolate the issue
+        console.log('🔍 Building transaction step by step...');
+        
+        try {
+          // Try without validator first
+          console.log('🔍 Step 1: Create base transaction');
+          const baseTx = lucid.newTx();
+          
+          console.log('🔍 Step 2: Add payment to contract');
+          const txWithPayment = baseTx.payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) });
+          
+          console.log('🔍 Step 3: Try to complete without script input');
+          await txWithPayment.complete();
+          
+          console.log('🔍 ✅ Simple transaction worked, now trying with script input...');
+        } catch (e) {
+          console.log('🔍 ❌ Simple transaction failed:', e.message);
+        }
+        
+        // Now try the full transaction with minimal approach
+        console.log('🔍 Building full transaction...');
         const tx = await lucid
           .newTx()
+          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
           .collectFrom([scriptUtxo], redeemerData)
           .attachSpendingValidator(validator)
-          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
           .complete();
         
         console.log('🟢 Transaction built, requesting wallet to sign');
