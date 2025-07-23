@@ -1076,48 +1076,13 @@ async function buyTicketsForLottery(ticketCount) {
         // Try to use CBOR data from backend, fall back to manual construction
         let redeemerData, datumData;
         
-        try {
-          if (params.redeemerCbor && typeof params.redeemerCbor === 'string') {
-            console.log('🔍 Using CBOR redeemer:', params.redeemerCbor);
-            // Parse CBOR data properly using Lucid's fromHex and fromBytes
-            const redeemerBytes = lucid.utils.fromHex(params.redeemerCbor);
-            redeemerData = Data.fromBytes(redeemerBytes);
-          } else {
-            throw new Error('No valid CBOR redeemer, using manual construction');
-          }
-        } catch (error) {
-          console.log('🔍 CBOR redeemer failed, using manual construction:', error.message);
-          // Construct redeemer manually as a simple object
-          redeemerData = {
-            constructor: params.redeemer.constructor,
-            fields: [
-              BigInt(params.redeemer.fields[0].int),
-              params.redeemer.fields[1].bytes,
-              BigInt(params.redeemer.fields[2].int)
-            ]
-          };
-        }
+        // Use raw CBOR strings directly to avoid parsing issues
+        console.log('🔍 Using raw CBOR redeemer:', params.redeemerCbor);
+        redeemerData = params.redeemerCbor;
         
-        try {
-          if (params.datumCbor && typeof params.datumCbor === 'string') {
-            console.log('🔍 Using CBOR datum:', params.datumCbor);
-            // Parse CBOR data properly using Lucid's fromHex and fromBytes
-            const datumBytes = lucid.utils.fromHex(params.datumCbor);
-            datumData = Data.fromBytes(datumBytes);
-          } else {
-            throw new Error('No valid CBOR datum, using manual construction');
-          }
-        } catch (error) {
-          console.log('🔍 CBOR datum failed, using manual construction:', error.message);
-          // Convert newDatum to proper Lucid format
-          datumData = {
-            total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
-            total_tickets: BigInt(params.newDatum.total_tickets),
-            ticket_prices: params.newDatum.ticket_prices.map(([pid, price]) => [pid, BigInt(price)]),
-            accepted_tokens: params.newDatum.accepted_tokens,
-            prize_split: params.newDatum.prize_split
-          };
-        }
+        // Use raw CBOR strings directly to avoid parsing issues
+        console.log('🔍 Using raw CBOR datum:', params.datumCbor);
+        datumData = params.datumCbor;
         
         console.log('🔍 Converted redeemer:', redeemerData);
         console.log('🔍 Converted datum:', datumData);
@@ -1154,12 +1119,12 @@ async function buyTicketsForLottery(ticketCount) {
           console.log('🔍 Error calculating script hash:', e);
         }
         
-        // Build transaction with proper script reference
+        // Build transaction with proper script reference using raw CBOR
         const tx = await lucid
           .newTx()
-          .collectFrom([scriptUtxo], Data.to(redeemerData))
+          .collectFrom([scriptUtxo], redeemerData)
           .attachSpendingValidator(validator)
-          .payToContract(params.scriptAddress, { inline: Data.to(datumData) }, { lovelace: BigInt(params.paymentAmount) })
+          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
           .complete();
         
         console.log('🟢 Transaction built, requesting wallet to sign');
