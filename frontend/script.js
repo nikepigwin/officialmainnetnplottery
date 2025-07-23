@@ -541,7 +541,11 @@ function showNotification(message, type = 'info') {
 }
 
 function formatADA(amount) {
-    return `${amount} ADA`;
+    if (amount === null || amount === undefined || isNaN(amount)) {
+        console.log('🔍 formatADA received invalid amount:', amount);
+        return '0.00 ADA';
+    }
+    return `${Number(amount).toFixed(2)} ADA`;
 }
 
 function formatAddress(address) {
@@ -684,8 +688,7 @@ async function refreshStats() {
           poolNIKEPIG: document.getElementById('poolNIKEPIG'),
           poolADAOnly: document.getElementById('poolADAOnly'),
           poolSNEKOnly: document.getElementById('poolSNEKOnly'),
-          poolNIKEPIGOnly: document.getElementById('poolNIKEPIGOnly'),
-          totalPool: document.getElementById('totalPool')
+          poolNIKEPIGOnly: document.getElementById('poolNIKEPIGOnly')
         };
         
         // Log missing elements
@@ -708,16 +711,7 @@ async function refreshStats() {
         if (poolElements.poolSNEKOnly) poolElements.poolSNEKOnly.textContent = snekAmount.toFixed(2);
         if (poolElements.poolNIKEPIGOnly) poolElements.poolNIKEPIGOnly.textContent = nikepigAmount.toFixed(2);
         
-        // Update total pool value
-        const totalPool = adaAmount + snekAmount + nikepigAmount;
-        if (poolElements.totalPool) {
-          poolElements.totalPool.textContent = totalPool.toFixed(2);
-          console.log('✅ Updated total pool:', totalPool.toFixed(2));
-        } else {
-          console.log('🔍 Total pool element not found, value would be:', totalPool.toFixed(2));
-        }
-        
-        console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount, totalPool });
+        console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount });
         console.log('✅ Stats updated successfully');
         if (arguments.length > 0) {
             showNotification('Stats refreshed successfully', 'success');
@@ -841,12 +835,25 @@ async function refreshWinners() {
                 
                 // Add all winners in this group
                 sortedWinners.forEach(winner => {
+                    // Add better null checking for winner data
+                    const position = winner.positionText || (winner.position ? `#${winner.position}` : '#?');
+                    const address = winner.address || 'Unknown Address';
+                    const amount = winner.amountADA || winner.amount || 0;
+                    
+                    console.log('🔍 Processing winner:', { 
+                        position: winner.position, 
+                        positionText: winner.positionText,
+                        address: winner.address, 
+                        amountADA: winner.amountADA,
+                        amount: winner.amount 
+                    });
+                    
                     html += `
                         <div class="winner-item">
                             <div class="winner-main-row">
-                                <div class="winner-position">${winner.positionText || `#${winner.position}`}</div>
-                                <div class="winner-address">${formatAddress(winner.address)}</div>
-                                <div class="winner-amount">${formatADA(winner.amountADA)}</div>
+                                <div class="winner-position">${position}</div>
+                                <div class="winner-address">${formatAddress(address)}</div>
+                                <div class="winner-amount">${formatADA(amount)}</div>
                             </div>
                             ${winner.timestamp ? `<div class="winner-timestamp">${new Date(winner.timestamp).toLocaleString()}</div>` : ''}
                         </div>
