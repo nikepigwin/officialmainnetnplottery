@@ -161,6 +161,186 @@ const POOL_WALLET = Deno.env.get("POOL_WALLET") || POOL_WALLET_ADDRESS;
 // Always use Preview testnet
 const NETWORK = "Preview";
 
+// 🎰 BACKEND ROUND STATE TRACKING (Testing: 3-minute rounds)
+interface BackendRoundState {
+  roundNumber: number;
+  roundStartTime: number;
+  participants: Array<{address: string; ticketCount: number; txHash: string; timestamp: number}>;
+  totalTickets: number;
+  totalPoolAmount: number; // in lovelace
+  salesOpen: boolean;
+  roundDuration: number; // milliseconds (3 minutes = 180000ms)
+}
+
+let currentRoundState: BackendRoundState = {
+  roundNumber: 1,
+  roundStartTime: Date.now(),
+  participants: [],
+  totalTickets: 0,
+  totalPoolAmount: 0,
+  salesOpen: true,
+  roundDuration: 3 * 60 * 1000 // 3 minutes for testing
+};
+
+// 🎰 AUTOMATED ROUND LIFECYCLE (3-minute cycles for testing)
+interface WinnerResult {
+  position: number;
+  address: string;
+  amount: number;
+  percentage: number;
+  transactionId: string;
+  ticketCount: number;
+}
+
+let automatedRoundTimer: number | null = null;
+
+// Winner selection algorithm (fair weighted random)
+function selectRoundWinners(participants: typeof currentRoundState.participants): WinnerResult[] {
+  if (participants.length === 0) {
+    console.log("⚠️ No participants to select winners from");
+    return [];
+  }
+  
+  console.log(`🎲 Selecting winners from ${participants.length} participants`);
+  
+  // Create weighted pool (more tickets = higher chance)
+  const weightedPool: string[] = [];
+  participants.forEach(participant => {
+    for (let i = 0; i < participant.ticketCount; i++) {
+      weightedPool.push(participant.address);
+    }
+  });
+  
+  console.log(`🎯 Total weighted entries: ${weightedPool.length}`);
+  
+  const winners: WinnerResult[] = [];
+  const usedAddresses = new Set<string>();
+  const prizePercentages = [50, 30, 20]; // 1st: 50%, 2nd: 30%, 3rd: 20%
+  
+  for (let position = 1; position <= 3 && position <= participants.length; position++) {
+    let attempts = 0;
+    while (attempts < weightedPool.length && winners.length < position) {
+      const randomIndex = Math.floor(Math.random() * weightedPool.length);
+      const selectedAddress = weightedPool[randomIndex];
+      
+      if (!usedAddresses.has(selectedAddress)) {
+        const participant = participants.find(p => p.address === selectedAddress)!;
+        const percentage = prizePercentages[position - 1];
+        const amount = (currentRoundState.totalPoolAmount / 1_000_000) * (percentage / 100);
+        
+        winners.push({
+          position: position,
+          address: selectedAddress,
+          amount: amount,
+          percentage: percentage,
+          transactionId: `auto_winner_${currentRoundState.roundNumber}_${position}_${Date.now()}`,
+          ticketCount: participant.ticketCount
+        });
+        
+        usedAddresses.add(selectedAddress);
+        console.log(`🏆 Winner ${position}: ${selectedAddress} (${amount.toFixed(2)} ADA, ${participant.ticketCount} tickets)`);
+      }
+      attempts++;
+    }
+  }
+  
+  return winners;
+}
+
+// Automated round processing
+async function processAutomatedRound() {
+  try {
+    const now = Date.now();
+    const roundAge = now - currentRoundState.roundStartTime;
+    
+    console.log(`⏰ Round age: ${Math.floor(roundAge / 1000)}s / ${Math.floor(currentRoundState.roundDuration / 1000)}s`);
+    
+    if (roundAge >= currentRoundState.roundDuration) {
+      console.log(`🔔 ROUND ${currentRoundState.roundNumber} TIME UP! Processing...`);
+      
+      // 1. Close sales
+      currentRoundState.salesOpen = false;
+      console.log("🚫 Sales closed");
+      
+      // 2. Select winners (if there are participants)
+      const winners = selectRoundWinners(currentRoundState.participants);
+      
+      if (winners.length > 0) {
+        console.log(`🎉 Selected ${winners.length} winners for round ${currentRoundState.roundNumber}:`);
+        winners.forEach(winner => {
+          console.log(`   ${winner.position}. ${winner.address}: ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
+        });
+        
+        // 3. Broadcast winner announcement
+        broadcastNotification({
+          type: 'winner_announcement',
+          message: `Round ${currentRoundState.roundNumber} winners selected!`,
+          data: {
+            roundNumber: currentRoundState.roundNumber,
+            winners: winners,
+            totalPool: currentRoundState.totalPoolAmount / 1_000_000,
+            totalParticipants: currentRoundState.participants.length,
+            totalTickets: currentRoundState.totalTickets
+          },
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.log("⚠️ No participants - no winners to announce");
+      }
+      
+      // 4. Reset for new round
+      const previousRound = currentRoundState.roundNumber;
+      const previousPool = currentRoundState.totalPoolAmount / 1_000_000;
+      
+      currentRoundState = {
+        roundNumber: currentRoundState.roundNumber + 1,
+        roundStartTime: Date.now(),
+        participants: [],
+        totalTickets: 0,
+        totalPoolAmount: 0,
+        salesOpen: true,
+        roundDuration: 3 * 60 * 1000 // 3 minutes for testing
+      };
+      
+      console.log(`🔄 NEW ROUND ${currentRoundState.roundNumber} STARTED! Sales open.`);
+      
+      // 5. Broadcast new round announcement
+      broadcastNotification({
+        type: 'pool_update',
+        message: `Round ${currentRoundState.roundNumber} started! Previous round had ${previousPool.toFixed(2)} ADA pool.`,
+        data: {
+          roundNumber: currentRoundState.roundNumber,
+          salesOpen: true,
+          previousRound: {
+            number: previousRound,
+            pool: previousPool,
+            winners: winners
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error in automated round processing:", error);
+  }
+}
+
+// Start automated round timer
+function startAutomatedRounds() {
+  if (automatedRoundTimer) {
+    clearInterval(automatedRoundTimer);
+  }
+  
+  console.log("🚀 Starting automated 3-minute lottery rounds...");
+  console.log(`⏰ Round ${currentRoundState.roundNumber} started at ${new Date(currentRoundState.roundStartTime).toISOString()}`);
+  
+  // Check every 10 seconds
+  automatedRoundTimer = setInterval(processAutomatedRound, 10 * 1000);
+}
+
+// Start automation when server starts
+startAutomatedRounds();
+
 // Types for the simplified smart contract
 interface LotteryStateDatum {
   total_pools: Array<[string, bigint]>;           // Multi-token pools (policy_id, amount)
@@ -316,27 +496,27 @@ router.get("/api/lottery/stats", async (ctx) => {
     if (!lotteryState) {
       // Add clear log and suggestion
       console.error("❌ No valid lottery datum found at script address. Make sure the contract is initialized and Blockfrost API key is set.");
-      // Even without smart contract state, we can show real pool balances
-      const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
+      // 🎰 USE BACKEND ROUND STATE (Much Better Architecture!)
+      console.log("✅ Using backend round state tracking instead of smart contract");
       
       ctx.response.body = {
-        success: true, // Changed to true to allow frontend to work
-        message: "Contract not initialized - showing pool wallet balances",
+        success: true,
+        message: "Using backend round state tracking (better architecture)",
         stats: {
-          roundNumber: 1, // Default to round 1
-          totalTicketsSold: 0,
-          currentPoolAmount: poolData.ADA,
-          totalPoolADA: poolData.ADA,
+          roundNumber: currentRoundState.roundNumber,
+          totalTicketsSold: currentRoundState.totalTickets,
+          currentPoolAmount: currentRoundState.totalPoolAmount / 1_000_000, // Convert to ADA
+          totalPoolADA: currentRoundState.totalPoolAmount / 1_000_000,
           multiTokenPool: {
-            ADA: poolData.ADA,
-            SNEK: poolData.SNEK,
-            NIKEPIG: poolData.NIKEPIG,
-            unauthorizedTokens: poolData.unauthorizedTokens
+            ADA: currentRoundState.totalPoolAmount / 1_000_000,
+            SNEK: 0, // For now, only tracking ADA
+            NIKEPIG: 0,
+            unauthorizedTokens: []
           },
           ticketPrice: 5,
-          totalParticipants: 0,
-          totalTickets: 0,
-          salesOpen: true, // Default to true
+          totalParticipants: currentRoundState.participants.length,
+          totalTickets: currentRoundState.totalTickets,
+          salesOpen: currentRoundState.salesOpen,
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
         }
       };
@@ -652,11 +832,48 @@ router.post("/api/lottery/confirm-ticket", async (ctx) => {
       timestamp: new Date().toISOString()
     });
     
+    // 🎰 UPDATE BACKEND ROUND STATE
+    const participant = {
+      address: address,
+      ticketCount: ticketCount,
+      txHash: txHash,
+      timestamp: Date.now()
+    };
+    
+    // Check if participant already exists (same address)
+    const existingIndex = currentRoundState.participants.findIndex(p => p.address === address);
+    if (existingIndex >= 0) {
+      // Update existing participant
+      currentRoundState.participants[existingIndex].ticketCount += ticketCount;
+      console.log(`✅ Updated existing participant: ${address} (total tickets: ${currentRoundState.participants[existingIndex].ticketCount})`);
+    } else {
+      // Add new participant
+      currentRoundState.participants.push(participant);
+      console.log(`✅ Added new participant: ${address} (tickets: ${ticketCount})`);
+    }
+    
+    // Update round totals
+    currentRoundState.totalTickets += ticketCount;
+    currentRoundState.totalPoolAmount += (ticketCount * 5 * 1_000_000); // 5 ADA per ticket in lovelace
+    
+    console.log(`🎰 Round State Updated:`, {
+      round: currentRoundState.roundNumber,
+      participants: currentRoundState.participants.length,
+      totalTickets: currentRoundState.totalTickets,
+      poolADA: currentRoundState.totalPoolAmount / 1_000_000
+    });
+    
     ctx.response.body = {
       success: true,
       message: `Confirmed purchase of ${ticketCount} tickets from ${address}`,
       transactionHash: txHash,
       poolWallet: poolWalletAddress || POOL_WALLET_ADDRESS,
+      roundStats: {
+        roundNumber: currentRoundState.roundNumber,
+        totalParticipants: currentRoundState.participants.length,
+        totalTickets: currentRoundState.totalTickets,
+        poolAmount: currentRoundState.totalPoolAmount / 1_000_000
+      },
       confirmedAt: new Date().toISOString()
     };
   } catch (error) {
