@@ -1124,7 +1124,7 @@ async function buyTicketsForLottery(ticketCount) {
         
         // Create validator object
         const validator = {
-          type: "PlutusV2",
+          type: "PlutusV3",
           script: params.scriptValidator
         };
         
