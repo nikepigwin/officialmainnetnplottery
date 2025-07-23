@@ -312,7 +312,24 @@ async function processAutomatedRound() {
           console.log(`   ${winner.position}. ${winner.address}: ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
         });
         
-        // 4. Broadcast winner announcement
+        // 4. 🏆 AUTO-TRIGGER PRIZE DISTRIBUTION
+        console.log(`🚀 Auto-triggering ClaimPrizes transaction for ${poolADA.toFixed(2)} ADA pool...`);
+        
+        try {
+          // TODO: Call ClaimPrizes transaction here when admin wallet is available
+          // For now, just log the distribution plan
+          console.log(`📋 Prize Distribution Plan:`);
+          console.log(`   Total Pool: ${poolADA.toFixed(2)} ADA`);
+          winners.forEach((winner, i) => {
+            console.log(`   Winner ${i + 1}: ${winner.address} → ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
+          });
+          console.log(`🔄 Implementation note: Add admin wallet signing to auto-execute ClaimPrizes`);
+          
+        } catch (distributionError) {
+          console.error("❌ Error in automated prize distribution:", distributionError);
+        }
+        
+        // 5. Broadcast winner announcement
         broadcastNotification({
           type: 'winner_announcement',
           message: `Round ${currentRoundState.roundNumber} winners selected! Pool: ${poolADA.toFixed(2)} ADA (after ${currentRoundState.rolledOverRounds} rollovers)`,
@@ -2086,3 +2103,187 @@ console.log(`🚀 Updated Deno server running on port ${port}`);
 console.log(`📝 Smart contract address: ${SCRIPT_ADDRESS}`);
 
 await app.listen({ port }); 
+
+// 🏆 NEW: ClaimPrizes transaction builder for current minimal contract
+router.post("/api/lottery/admin/claim-prizes", async (ctx) => {
+  try {
+    console.log('🏆 Building ClaimPrizes transaction...');
+    
+    // Get request body
+    const bodyResult = await ctx.request.body({ type: "json" });
+    const body = await bodyResult.value;
+    const { winners, adminWalletAddress } = body;
+    
+    if (!winners || !Array.isArray(winners) || winners.length === 0) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Valid winners array required" };
+      return;
+    }
+    
+    if (!adminWalletAddress) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Admin wallet address required" };
+      return;
+    }
+    
+    // Initialize Lucid
+    const lucid = await Lucid.new(
+      new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
+      NETWORK
+    );
+    
+    // Get current smart contract state
+    const lotteryState = await getCurrentLotteryState();
+    if (!lotteryState) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Could not fetch lottery state" };
+      return;
+    }
+    
+    // Get script UTxO
+    const scriptUtxos = await lucid.utxosAt(SCRIPT_ADDRESS);
+    if (scriptUtxos.length === 0) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "No UTxO at script address" };
+      return;
+    }
+    const scriptUtxo = scriptUtxos[0];
+    
+    // Get pool wallet UTxOs (where the actual prize money is stored)
+    const poolUtxos = await lucid.utxosAt(POOL_WALLET_ADDRESS);
+    if (poolUtxos.length === 0) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "No funds in pool wallet" };
+      return;
+    }
+    
+    // Calculate total ADA pool from pool wallet
+    let totalPoolLovelace = 0n;
+    for (const utxo of poolUtxos) {
+      totalPoolLovelace += utxo.assets.lovelace || 0n;
+    }
+    const totalPoolADA = Number(totalPoolLovelace) / 1_000_000;
+    
+    console.log(`💰 Total pool from wallet: ${totalPoolADA} ADA`);
+    
+    // Get prize split configuration for ADA (empty string = lovelace)
+    const adaPrizeSplit = lotteryState.prize_split.find(([policyId]) => policyId === "" || policyId === "lovelace");
+    if (!adaPrizeSplit) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "No ADA prize split configuration found" };
+      return;
+    }
+    
+    const prizePercentages = adaPrizeSplit[1]; // [50, 30, 20] etc
+    console.log(`🎯 Prize percentages: ${prizePercentages.map(p => Number(p))}%`);
+    
+    // Validate winners match prize split
+    if (winners.length !== prizePercentages.length) {
+      ctx.response.status = 400;
+      ctx.response.body = { 
+        success: false, 
+        error: `Winners count (${winners.length}) must match prize split count (${prizePercentages.length})` 
+      };
+      return;
+    }
+    
+    // Calculate prize amounts
+    const prizeAmounts: bigint[] = [];
+    let totalDistributed = 0n;
+    
+    for (let i = 0; i < winners.length; i++) {
+      const percentage = Number(prizePercentages[i]);
+      const prizeLovelace = (totalPoolLovelace * BigInt(percentage)) / 100n;
+      prizeAmounts.push(prizeLovelace);
+      totalDistributed += prizeLovelace;
+      
+      console.log(`🏆 Winner ${i + 1}: ${winners[i].address.substring(0, 20)}... gets ${Number(prizeLovelace) / 1_000_000} ADA (${percentage}%)`);
+    }
+    
+    // Build ClaimPrizes redeemer
+    const winnerIndices = winners.map((_, index) => BigInt(index));
+    const prizeAmountsForToken = [["", prizeAmounts]]; // Empty string = lovelace/ADA
+    
+    const claimPrizesRedeemer = new Constr(2, [ // Constructor 2 = ClaimPrizes
+      winnerIndices,
+      prizeAmountsForToken.map(([policyId, amounts]) => 
+        new Constr(0, [policyId, amounts])
+      )
+    ]);
+    
+    console.log(`🔧 ClaimPrizes redeemer built:`, {
+      winnerIndices: winnerIndices.map(i => Number(i)),
+      totalPrizes: prizeAmounts.map(p => Number(p) / 1_000_000)
+    });
+    
+    // Create new datum for next round (reset pools and tickets)
+    const newDatum: LotteryStateDatum = {
+      total_pools: [], // Reset for new round
+      ticket_prices: lotteryState.ticket_prices,
+      total_tickets: 0n, // Reset for new round
+      accepted_tokens: lotteryState.accepted_tokens,
+      prize_split: lotteryState.prize_split
+    };
+    
+    // Serialize new datum
+    const datumType = Data.Object({
+      total_pools: Data.Array(Data.Tuple([Data.Bytes(), Data.Integer()])),
+      ticket_prices: Data.Array(Data.Tuple([Data.Bytes(), Data.Integer()])),
+      total_tickets: Data.Integer(),
+      accepted_tokens: Data.Array(Data.Bytes()),
+      prize_split: Data.Array(Data.Tuple([Data.Bytes(), Data.Array(Data.Integer())]))
+    });
+    const newDatumCbor = Data.to(newDatum, datumType);
+    
+    // Build transaction
+    let tx = lucid.newTx();
+    
+    // Collect from script UTxO with ClaimPrizes redeemer
+    tx = tx.collectFrom([scriptUtxo], Data.to(claimPrizesRedeemer));
+    
+    // Collect from pool wallet UTxOs
+    tx = tx.collectFrom(poolUtxos);
+    
+    // Pay winners
+    for (let i = 0; i < winners.length; i++) {
+      const winner = winners[i];
+      const prizeAmount = prizeAmounts[i];
+      tx = tx.payToAddress(winner.address, { lovelace: prizeAmount });
+    }
+    
+    // Send remaining funds back to script with new datum
+    const remainingLovelace = 2_000_000n; // 2 ADA minimum
+    tx = tx.payToContract(SCRIPT_ADDRESS, { inline: newDatumCbor }, { lovelace: remainingLovelace });
+    
+    // Attach script validator
+    tx = tx.attachSpendingValidator(SCRIPT_VALIDATOR);
+    
+    // Complete transaction
+    const completedTx = await tx.complete();
+    
+    ctx.response.body = {
+      success: true,
+      message: "ClaimPrizes transaction built successfully",
+      transactionCbor: completedTx.toString(),
+      prizeDistribution: {
+        totalPool: totalPoolADA,
+        winners: winners.map((winner, i) => ({
+          address: winner.address,
+          amount: Number(prizeAmounts[i]) / 1_000_000,
+          percentage: Number(prizePercentages[i])
+        }))
+      },
+      newRoundState: {
+        total_pools: [],
+        total_tickets: 0,
+        message: "New round initialized"
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error("❌ Error building ClaimPrizes transaction:", error);
+    ctx.response.status = 500;
+    ctx.response.body = { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}); 
