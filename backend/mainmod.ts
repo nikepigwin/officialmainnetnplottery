@@ -316,19 +316,22 @@ router.get("/api/lottery/stats", async (ctx) => {
     if (!lotteryState) {
       // Add clear log and suggestion
       console.error("❌ No valid lottery datum found at script address. Make sure the contract is initialized and Blockfrost API key is set.");
+      // Even without smart contract state, we can show real pool balances
+      const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
+      
       ctx.response.body = {
         success: true, // Changed to true to allow frontend to work
-        message: "Contract not initialized - showing default stats",
+        message: "Contract not initialized - showing pool wallet balances",
         stats: {
           roundNumber: 1, // Default to round 1
           totalTicketsSold: 0,
-          currentPoolAmount: 0,
-          totalPoolADA: 0,
+          currentPoolAmount: poolData.ADA,
+          totalPoolADA: poolData.ADA,
           multiTokenPool: {
-            ADA: 0,
-            SNEK: 0,
-            NIKEPIG: 0,
-            unauthorizedTokens: []
+            ADA: poolData.ADA,
+            SNEK: poolData.SNEK,
+            NIKEPIG: poolData.NIKEPIG,
+            unauthorizedTokens: poolData.unauthorizedTokens
           },
           ticketPrice: 5,
           totalParticipants: 0,
@@ -339,30 +342,14 @@ router.get("/api/lottery/stats", async (ctx) => {
       };
       return;
     }
-    // Calculate multi-token pool data
-    const multiTokenPool: {
-      ADA: number;
-      SNEK: number;
-      NIKEPIG: number;
-      unauthorizedTokens: Array<{policyId: string; amount: number}>;
-    } = {
-      ADA: 0,
-      SNEK: 0,
-      NIKEPIG: 0,
-      unauthorizedTokens: []
+    // Get actual pool balances from POOL WALLET (not smart contract datum)
+    const poolData = await getMultiTokenPoolData(BLOCKFROST_URL, BLOCKFROST_API_KEY, POOL_WALLET_ADDRESS);
+    const multiTokenPool = {
+      ADA: poolData.ADA,
+      SNEK: poolData.SNEK,
+      NIKEPIG: poolData.NIKEPIG,
+      unauthorizedTokens: poolData.unauthorizedTokens
     };
-    // Fix division of bigint by number (convert to number first)
-    for (const [policyId, amount] of lotteryState.total_pools) {
-      if (policyId === "lovelace") {
-        multiTokenPool.ADA = Number(amount) / 1_000_000;
-      } else if (policyId === "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b") {
-        multiTokenPool.SNEK = Number(amount) / 1_000_000;
-      } else if (policyId === "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65") {
-        multiTokenPool.NIKEPIG = Number(amount) / 1_000_000;
-      } else {
-        multiTokenPool.unauthorizedTokens.push({ policyId, amount: Number(amount) });
-      }
-    }
     // Get ticket price (default to 5 ADA if not set)
     const adaTicketPrice = lotteryState.ticket_prices.find(([policyId]) => policyId === "lovelace");
     const ticketPrice = adaTicketPrice ? Number(adaTicketPrice[1]) / 1_000_000 : 5;
