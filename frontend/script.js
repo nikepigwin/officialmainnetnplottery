@@ -1068,12 +1068,18 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Transaction params received:', params);
         const Data = window.Lucid.Data;
         
-        // Use pre-built CBOR data from backend if available
+        // Try to use CBOR data from backend, fall back to manual construction
         let redeemerData, datumData;
         
-        if (params.redeemerCbor) {
-          redeemerData = Data.from(params.redeemerCbor);
-        } else {
+        try {
+          if (params.redeemerCbor && typeof params.redeemerCbor === 'string') {
+            console.log('🔍 Using CBOR redeemer:', params.redeemerCbor);
+            redeemerData = Data.from(params.redeemerCbor);
+          } else {
+            throw new Error('No valid CBOR redeemer, using manual construction');
+          }
+        } catch (error) {
+          console.log('🔍 CBOR redeemer failed, using manual construction:', error.message);
           // Construct redeemer manually as a simple object
           redeemerData = {
             constructor: params.redeemer.constructor,
@@ -1085,9 +1091,15 @@ async function buyTicketsForLottery(ticketCount) {
           };
         }
         
-        if (params.datumCbor) {
-          datumData = Data.from(params.datumCbor);
-        } else {
+        try {
+          if (params.datumCbor && typeof params.datumCbor === 'string') {
+            console.log('🔍 Using CBOR datum:', params.datumCbor);
+            datumData = Data.from(params.datumCbor);
+          } else {
+            throw new Error('No valid CBOR datum, using manual construction');
+          }
+        } catch (error) {
+          console.log('🔍 CBOR datum failed, using manual construction:', error.message);
           // Convert newDatum to proper Lucid format
           datumData = {
             total_pools: params.newDatum.total_pools.map(([pid, amt]) => [pid, BigInt(amt)]),
@@ -1101,7 +1113,9 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Converted redeemer:', redeemerData);
         console.log('🔍 Converted datum:', datumData);
         console.log('🔍 Script validator length:', params.scriptValidator.length);
+        console.log('🔍 Script validator (first 100 chars):', params.scriptValidator.substring(0, 100));
         console.log('🔍 Script UTxO:', scriptUtxo);
+        console.log('🔍 Payment amount:', params.paymentAmount, typeof params.paymentAmount);
         
         // Create validator object
         const validator = {
@@ -1111,9 +1125,9 @@ async function buyTicketsForLottery(ticketCount) {
         
         const tx = await lucid
           .newTx()
-          .collectFrom([scriptUtxo], redeemerData)
+          .collectFrom([scriptUtxo], Data.to(redeemerData))
           .attachSpendingValidator(validator)
-          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+          .payToContract(params.scriptAddress, { inline: Data.to(datumData) }, { lovelace: BigInt(params.paymentAmount) })
           .complete();
         
         console.log('🟢 Transaction built, requesting wallet to sign');
