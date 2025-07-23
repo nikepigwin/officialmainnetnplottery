@@ -1100,12 +1100,20 @@ async function buyTicketsForLottery(ticketCount) {
         
         console.log('🔍 Converted redeemer:', redeemerData);
         console.log('🔍 Converted datum:', datumData);
+        console.log('🔍 Script validator length:', params.scriptValidator.length);
+        console.log('🔍 Script UTxO:', scriptUtxo);
+        
+        // Create validator object
+        const validator = {
+          type: "PlutusV2",
+          script: params.scriptValidator
+        };
         
         const tx = await lucid
           .newTx()
-          .collectFrom([scriptUtxo], Data.to(redeemerData))
-          .payToContract(params.scriptAddress, { inline: Data.to(datumData) }, { lovelace: BigInt(params.paymentAmount) })
-          .attachSpendingValidator({ type: "PlutusV2", script: params.scriptValidator })
+          .collectFrom([scriptUtxo], redeemerData)
+          .attachSpendingValidator(validator)
+          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
           .complete();
         
         console.log('🟢 Transaction built, requesting wallet to sign');
