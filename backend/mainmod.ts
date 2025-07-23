@@ -313,20 +313,15 @@ async function processAutomatedRound() {
         });
         
         // 4. 🏆 AUTO-TRIGGER PRIZE DISTRIBUTION
-        console.log(`🚀 Auto-triggering ClaimPrizes transaction for ${poolADA.toFixed(2)} ADA pool...`);
+        console.log(`🚀 Auto-distributing ${poolADA.toFixed(2)} ADA pool to ${winners.length} winners...`);
         
         try {
-          // TODO: Call ClaimPrizes transaction here when admin wallet is available
-          // For now, just log the distribution plan
-          console.log(`📋 Prize Distribution Plan:`);
-          console.log(`   Total Pool: ${poolADA.toFixed(2)} ADA`);
-          winners.forEach((winner, i) => {
-            console.log(`   Winner ${i + 1}: ${winner.address} → ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
-          });
-          console.log(`🔄 Implementation note: Add admin wallet signing to auto-execute ClaimPrizes`);
+          await distributeAutomaticPrizes(winners, poolADA);
+          console.log(`✅ Automated prize distribution completed successfully!`);
           
         } catch (distributionError) {
           console.error("❌ Error in automated prize distribution:", distributionError);
+          // Continue with round reset even if distribution fails
         }
         
         // 5. Broadcast winner announcement
@@ -2287,3 +2282,151 @@ router.post("/api/lottery/admin/claim-prizes", async (ctx) => {
     ctx.response.body = { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }); 
+
+// 🤖 AUTOMATED PRIZE DISTRIBUTION FUNCTION
+async function distributeAutomaticPrizes(
+  winners: Array<{address: string; amount: number; percentage: number; position: number}>,
+  totalPoolADA: number
+): Promise<void> {
+  if (!winners || winners.length === 0) {
+    throw new Error("No winners to distribute prizes to");
+  }
+  
+  console.log(`🎰 Starting automated prize distribution for ${winners.length} winners`);
+  console.log(`💰 Total pool: ${totalPoolADA.toFixed(2)} ADA`);
+  
+  try {
+    // Check if we have the pool wallet private key for automated signing
+    const POOL_WALLET_PRIVATE_KEY = Deno.env.get("POOL_WALLET_PRIVATE_KEY");
+    if (!POOL_WALLET_PRIVATE_KEY) {
+      throw new Error("POOL_WALLET_PRIVATE_KEY not configured - cannot auto-distribute prizes");
+    }
+    
+    // Initialize Lucid with pool wallet
+    const lucid = await Lucid.new(
+      new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
+      NETWORK
+    );
+    
+    // Import pool wallet from private key
+    lucid.selectWalletFromPrivateKey(POOL_WALLET_PRIVATE_KEY);
+    const poolWalletAddress = await lucid.wallet.address();
+    console.log(`🏦 Using pool wallet: ${poolWalletAddress}`);
+    
+    // Get pool wallet UTxOs
+    const poolUtxos = await lucid.utxosAt(poolWalletAddress);
+    if (poolUtxos.length === 0) {
+      throw new Error("No UTxOs available in pool wallet");
+    }
+    
+    // Calculate total available ADA
+    let totalAvailableLovelace = 0n;
+    for (const utxo of poolUtxos) {
+      totalAvailableLovelace += utxo.assets.lovelace || 0n;
+    }
+    const totalAvailableADA = Number(totalAvailableLovelace) / 1_000_000;
+    
+    console.log(`💳 Pool wallet balance: ${totalAvailableADA.toFixed(2)} ADA`);
+    
+    // Check if we have enough funds
+    const totalPrizeNeeded = winners.reduce((sum, winner) => sum + winner.amount, 0);
+    if (totalAvailableADA < totalPrizeNeeded) {
+      throw new Error(`Insufficient funds: need ${totalPrizeNeeded.toFixed(2)} ADA, have ${totalAvailableADA.toFixed(2)} ADA`);
+    }
+    
+    // Build transaction to pay all winners
+    let tx = lucid.newTx();
+    
+    // Add winner payments
+    for (const winner of winners) {
+      const prizeLovelace = BigInt(Math.floor(winner.amount * 1_000_000));
+      tx = tx.payToAddress(winner.address, { lovelace: prizeLovelace });
+      
+      console.log(`🏆 Winner ${winner.position}: ${winner.address.substring(0, 20)}... → ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
+    }
+    
+    // Complete and submit transaction
+    const completedTx = await tx.complete();
+    const signedTx = await completedTx.sign().complete();
+    const txHash = await signedTx.submit();
+    
+    console.log(`✅ Prize distribution transaction submitted: ${txHash}`);
+    console.log(`🔗 View on Cardanoscan: https://preview.cardanoscan.io/transaction/${txHash}`);
+    
+    // Wait a moment for transaction to be processed
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Verify transaction was successful
+    try {
+      await lucid.awaitTx(txHash);
+      console.log(`🎉 Prize distribution confirmed on blockchain!`);
+      
+      // Log success for each winner
+      winners.forEach(winner => {
+        console.log(`💰 ${winner.address} received ${winner.amount.toFixed(2)} ADA`);
+      });
+      
+    } catch (confirmError) {
+      console.warn(`⚠️ Transaction submitted but confirmation failed: ${confirmError}`);
+      console.log(`🔍 Check transaction status manually: ${txHash}`);
+    }
+    
+  } catch (error) {
+    console.error("❌ Error in automated prize distribution:", error);
+    throw error; // Re-throw to be handled by caller
+  }
+}
+
+// 🚨 EMERGENCY MANUAL PRIZE DISTRIBUTION ENDPOINT
+router.post("/api/lottery/admin/emergency-distribute", async (ctx) => {
+  try {
+    console.log('🚨 Emergency manual prize distribution triggered');
+    
+    // Get request body
+    const bodyResult = await ctx.request.body({ type: "json" });
+    const body = await bodyResult.value;
+    const { winners, force } = body;
+    
+    if (!winners || !Array.isArray(winners) || winners.length === 0) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Valid winners array required" };
+      return;
+    }
+    
+    // Validate winner format
+    for (const winner of winners) {
+      if (!winner.address || !winner.amount || typeof winner.amount !== 'number') {
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, error: "Each winner must have address and amount" };
+        return;
+      }
+    }
+    
+    const totalPrizeNeeded = winners.reduce((sum: number, winner: any) => sum + winner.amount, 0);
+    console.log(`💰 Emergency distribution: ${totalPrizeNeeded.toFixed(2)} ADA to ${winners.length} winners`);
+    
+    // Use the same automated distribution function
+    await distributeAutomaticPrizes(winners, totalPrizeNeeded);
+    
+    ctx.response.body = {
+      success: true,
+      message: "Emergency prize distribution completed successfully",
+      totalDistributed: totalPrizeNeeded,
+      winnersCount: winners.length,
+      winners: winners.map((winner: any) => ({
+        address: winner.address,
+        amount: winner.amount
+      })),
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error("❌ Error in emergency prize distribution:", error);
+    ctx.response.status = 500;
+    ctx.response.body = { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    };
+  }
+});
