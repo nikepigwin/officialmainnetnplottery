@@ -156,7 +156,8 @@ const BLOCKFROST_API_KEY = 'previewyEaLt5aKLcelODYvUD4Ka8cmT41DurY0';
 const SCRIPT_ADDRESS = Deno.env.get("SCRIPT_ADDRESS") || Deno.readTextFileSync("./initialize_contract/contract.addr").trim();
 const ADMIN_WALLET_ADDRESS = Deno.env.get("ADMIN_WALLET_ADDRESS");
 // Separate lottery pool wallet for fund storage (better architecture)
-const POOL_WALLET_ADDRESS = "addr_test1qpndcu8gv9t6xrr3up8stle8cmxee7qgys034lfwgzcsckmywrv9avf8lpvwkz97q2c6msaannl28etcuqtuq90pdwnsnhez9k";
+// Updated to use terminal-generated wallet that matches the private key
+const POOL_WALLET_ADDRESS = "addr_test1vp6jucpj0sdclz4trdnzvtqs6x3e7vaq8psauzhcl0jd0vc3qnet5";
 const POOL_WALLET = Deno.env.get("POOL_WALLET") || POOL_WALLET_ADDRESS;
 // Always use Preview testnet
 const NETWORK = "Preview";
