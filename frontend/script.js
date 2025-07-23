@@ -1117,30 +1117,13 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Script UTxO:', scriptUtxo);
         console.log('🔍 Payment amount:', params.paymentAmount, typeof params.paymentAmount);
         
-        // Try different validator formats to find what works
-        let validator;
-        try {
-          // Try as a native script first
-          validator = {
-            type: "Native",
-            script: params.scriptValidator
-          };
-          console.log('🔍 Trying Native script type');
-        } catch (e) {
-          console.log('🔍 Native script failed, trying PlutusV2');
-          try {
-            validator = {
-              type: "PlutusV2", 
-              script: params.scriptValidator
-            };
-          } catch (e2) {
-            console.log('🔍 PlutusV2 failed, using PlutusV3');
-            validator = {
-              type: "PlutusV3",
-              script: params.scriptValidator
-            };
-          }
-        }
+        // Create Plutus validator with correct format
+        console.log('🔍 Creating PlutusV3 validator');
+        const validator = {
+          type: "PlutusV3",
+          script: params.scriptValidator
+        };
+        console.log('🔍 Validator created successfully');
         
         // Skip script hash calculation for now and use backend address directly
         console.log('🔍 Skipping script hash calculation, using backend address directly');
