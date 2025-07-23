@@ -672,25 +672,48 @@ async function refreshStats() {
                 }
             }
         }
-        // Update pool values
-        const poolADA = document.getElementById('poolADA');
-        const poolSNEK = document.getElementById('poolSNEK');
-        const poolNIKEPIG = document.getElementById('poolNIKEPIG');
-        const poolADAOnly = document.getElementById('poolADAOnly');
-        const poolSNEKOnly = document.getElementById('poolSNEKOnly');
-        const poolNIKEPIGOnly = document.getElementById('poolNIKEPIGOnly');
-        if (poolADA) poolADA.textContent = (stats.multiTokenPool?.ADA || 0).toFixed(2);
-        if (poolSNEK) poolSNEK.textContent = (stats.multiTokenPool?.SNEK || 0).toFixed(2);
-        if (poolNIKEPIG) poolNIKEPIG.textContent = (stats.multiTokenPool?.NIKEPIG || 0).toFixed(2);
-        if (poolADAOnly) poolADAOnly.textContent = (stats.multiTokenPool?.ADA || 0).toFixed(2);
-        if (poolSNEKOnly) poolSNEKOnly.textContent = (stats.multiTokenPool?.SNEK || 0).toFixed(2);
-        if (poolNIKEPIGOnly) poolNIKEPIGOnly.textContent = (stats.multiTokenPool?.NIKEPIG || 0).toFixed(2);
-        // Optionally update a total pool value if you add an element for it
-        // const totalPoolElement = document.getElementById('totalPool');
-        // if (totalPoolElement) {
-        //   const total = (stats.multiTokenPool?.ADA || 0) + (stats.multiTokenPool?.SNEK || 0) + (stats.multiTokenPool?.NIKEPIG || 0);
-        //   totalPoolElement.textContent = total.toFixed(2);
-        // }
+        // Update pool values with detailed logging
+        console.log('🔄 Updating pool values:', stats.multiTokenPool);
+        const poolElements = {
+          poolADA: document.getElementById('poolADA'),
+          poolSNEK: document.getElementById('poolSNEK'),
+          poolNIKEPIG: document.getElementById('poolNIKEPIG'),
+          poolADAOnly: document.getElementById('poolADAOnly'),
+          poolSNEKOnly: document.getElementById('poolSNEKOnly'),
+          poolNIKEPIGOnly: document.getElementById('poolNIKEPIGOnly'),
+          totalPool: document.getElementById('totalPool')
+        };
+        
+        // Log missing elements
+        const missingElements = Object.entries(poolElements)
+          .filter(([name, element]) => !element)
+          .map(([name]) => name);
+        if (missingElements.length > 0) {
+          console.log('🔍 Missing pool elements:', missingElements);
+        }
+        
+        // Update individual pool values
+        const adaAmount = (stats.multiTokenPool?.ADA || 0);
+        const snekAmount = (stats.multiTokenPool?.SNEK || 0);
+        const nikepigAmount = (stats.multiTokenPool?.NIKEPIG || 0);
+        
+        if (poolElements.poolADA) poolElements.poolADA.textContent = adaAmount.toFixed(2);
+        if (poolElements.poolSNEK) poolElements.poolSNEK.textContent = snekAmount.toFixed(2);
+        if (poolElements.poolNIKEPIG) poolElements.poolNIKEPIG.textContent = nikepigAmount.toFixed(2);
+        if (poolElements.poolADAOnly) poolElements.poolADAOnly.textContent = adaAmount.toFixed(2);
+        if (poolElements.poolSNEKOnly) poolElements.poolSNEKOnly.textContent = snekAmount.toFixed(2);
+        if (poolElements.poolNIKEPIGOnly) poolElements.poolNIKEPIGOnly.textContent = nikepigAmount.toFixed(2);
+        
+        // Update total pool value
+        const totalPool = adaAmount + snekAmount + nikepigAmount;
+        if (poolElements.totalPool) {
+          poolElements.totalPool.textContent = totalPool.toFixed(2);
+          console.log('✅ Updated total pool:', totalPool.toFixed(2));
+        } else {
+          console.log('🔍 Total pool element not found, value would be:', totalPool.toFixed(2));
+        }
+        
+        console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount, totalPool });
         console.log('✅ Stats updated successfully');
         if (arguments.length > 0) {
             showNotification('Stats refreshed successfully', 'success');
@@ -851,6 +874,9 @@ async function refreshWinners() {
         }
         await fetchAndShowPrizeStatus();
     } catch (error) {
+        console.error('❌ Failed to refresh winners - detailed error:', error);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error stack:', error.stack);
         hideWinnerBanner();
         showNotification('Failed to refresh winners', 'error');
     }
@@ -1147,12 +1173,13 @@ async function buyTicketsForLottery(ticketCount) {
         
         console.log('🔍 Now building proper script transaction...');
         try {
-          // Build the correct script transaction
+          // Build the correct script transaction - try different method combinations
+          console.log('🔍 Attempting method 1: collectFrom + attach');
           const tx = await lucid
             .newTx()
             .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
             .collectFrom([scriptUtxo], redeemerData)
-            .attachSpendingValidator(validator)
+            .attach.SpendingValidator(validator)
             .complete();
           
           console.log('🔍 ✅ Script transaction built successfully!');
@@ -1165,27 +1192,75 @@ async function buyTicketsForLottery(ticketCount) {
           return;
           
         } catch (e) {
-          console.log('🔍 ❌ Script transaction failed:', e.message);
-          console.log('🔍 Trying fallback simple payment...');
+          console.log('🔍 ❌ Method 1 failed:', e.message);
           
-          // Fallback to simple payment
+          // Try method 2: different attach syntax
           try {
-            const simpleTx = await lucid
+            console.log('🔍 Attempting method 2: attachValidator');
+            const tx = await lucid
               .newTx()
-              .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+              .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+              .collectFrom([scriptUtxo], redeemerData)
+              .attachValidator(validator)
               .complete();
-            console.log('🔍 ✅ Fallback payToAddress worked');
             
-            const signedTx = await simpleTx.sign().complete();
+            console.log('🔍 ✅ Method 2 worked! Script transaction built successfully!');
+            
+            const signedTx = await tx.sign().complete();
             const txHash = await signedTx.submit();
             
-            showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
-            console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+            showNotification('🎟️ Script transaction submitted! Tx Hash: ' + txHash, 'success');
+            console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
             return;
             
           } catch (e2) {
-            console.log('🔍 ❌ Fallback failed:', e2.message);
-            throw e; // Throw original script transaction error
+            console.log('🔍 ❌ Method 2 failed:', e2.message);
+            
+            // Try method 3: simpler approach without collectFrom
+            try {
+              console.log('🔍 Attempting method 3: simple payToContract only');
+              const tx = await lucid
+                .newTx()
+                .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+                .complete();
+              
+              console.log('🔍 ✅ Method 3 worked! Simple contract payment built successfully!');
+              
+              const signedTx = await tx.sign().complete();
+              const txHash = await signedTx.submit();
+              
+              showNotification('🎟️ Contract payment submitted! Tx Hash: ' + txHash, 'success');
+              console.log('🎟️ Contract payment submitted! Tx Hash:', txHash);
+              return;
+              
+            } catch (e3) {
+              console.log('🔍 ❌ Method 3 failed:', e3.message);
+              console.log('🔍 Trying fallback simple payment...');
+              
+              // Final fallback to simple payment
+              try {
+                const simpleTx = await lucid
+                  .newTx()
+                  .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+                  .complete();
+                console.log('🔍 ✅ Fallback payToAddress worked');
+                
+                const signedTx = await simpleTx.sign().complete();
+                const txHash = await signedTx.submit();
+                
+                showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
+                console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+                return;
+                
+              } catch (e4) {
+                console.log('🔍 ❌ All methods failed!');
+                console.log('🔍 Method 1 error:', e.message);
+                console.log('🔍 Method 2 error:', e2.message);
+                console.log('🔍 Method 3 error:', e3.message);
+                console.log('🔍 Fallback error:', e4.message);
+                throw e; // Throw original error
+              }
+            }
           }
         }
 
