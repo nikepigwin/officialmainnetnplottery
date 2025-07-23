@@ -1130,93 +1130,65 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Using script address from backend:', params.scriptAddress);
         
         // Build transaction step by step to isolate the issue
-        console.log('🔍 Building transaction step by step...');
-        
-        try {
-          // Try without validator first
-          console.log('🔍 Step 1: Create base transaction');
-          const baseTx = lucid.newTx();
-          
-          console.log('🔍 Step 2: Add payment to contract');
-          const txWithPayment = baseTx.payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) });
-          
-          console.log('🔍 Step 3: Try to complete without script input');
-          await txWithPayment.complete();
-          
-          console.log('🔍 ✅ Simple transaction worked, now trying with script input...');
-        } catch (e) {
-          console.log('🔍 ❌ Simple transaction failed:', e.message);
-        }
-        
-        // Now test each component individually
-        console.log('🔍 Testing collectFrom alone...');
-        try {
-          const txWithCollect = await lucid
-            .newTx()
-            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-            .collectFrom([scriptUtxo], redeemerData)
-            .complete();
-          console.log('🔍 ✅ collectFrom worked');
-        } catch (e) {
-          console.log('🔍 ❌ collectFrom failed:', e.message);
-        }
-        
-        console.log('🔍 Testing attachSpendingValidator alone...');
-        try {
-          const txWithValidator = await lucid
-            .newTx()
-            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-            .attachSpendingValidator(validator)
-            .complete();
-          console.log('🔍 ✅ attachSpendingValidator worked');
-        } catch (e) {
-          console.log('🔍 ❌ attachSpendingValidator failed:', e.message);
-        }
-        
-        console.log('🔍 Testing transaction without validator...');
-        try {
-          const txWithoutValidator = await lucid
-            .newTx()
-            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-            .collectFrom([scriptUtxo], redeemerData)
-            .complete();
-          console.log('🔍 ✅ Transaction without validator worked!');
-        } catch (e) {
-          console.log('🔍 ❌ Transaction without validator failed:', e.message);
-        }
-        
-        console.log('🔍 Debugging Lucid object and available methods...');
+        console.log('🔍 Inspecting Lucid object and available methods...');
         console.log('🔍 Lucid object:', lucid);
         console.log('🔍 newTx result:', lucid.newTx());
         console.log('🔍 Available methods on newTx:', Object.getOwnPropertyNames(lucid.newTx()));
         
-        console.log('🔍 Trying simplest possible approach - basic payment only...');
+        // Get all available methods on the transaction builder
+        const txBuilder = lucid.newTx();
+        const txMethods = [];
+        let obj = txBuilder;
+        while (obj !== null) {
+          txMethods.push(...Object.getOwnPropertyNames(obj));
+          obj = Object.getPrototypeOf(obj);
+        }
+        console.log('🔍 All available methods on transaction builder:', [...new Set(txMethods)].sort());
+        
+        console.log('🔍 Now building proper script transaction...');
         try {
-          // Try correct Lucid API method name
-          const simpleTx = await lucid
+          // Build the correct script transaction
+          const tx = await lucid
             .newTx()
-            .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
+            .collectFrom([scriptUtxo], redeemerData)
+            .attachSpendingValidator(validator)
             .complete();
-          console.log('🔍 ✅ Simple payToAddress worked');
           
-          const signedTx = await simpleTx.sign().complete();
+          console.log('🔍 ✅ Script transaction built successfully!');
+          
+          const signedTx = await tx.sign().complete();
           const txHash = await signedTx.submit();
           
-          showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
-          console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+          showNotification('🎟️ Script transaction submitted! Tx Hash: ' + txHash, 'success');
+          console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
           return;
           
         } catch (e) {
-          console.log('🔍 ❌ Simple payToAddress failed:', e.message);
+          console.log('🔍 ❌ Script transaction failed:', e.message);
+          console.log('🔍 Trying fallback simple payment...');
+          
+          // Fallback to simple payment
+          try {
+            const simpleTx = await lucid
+              .newTx()
+              .payToAddress(params.scriptAddress, { lovelace: BigInt(params.paymentAmount) })
+              .complete();
+            console.log('🔍 ✅ Fallback payToAddress worked');
+            
+            const signedTx = await simpleTx.sign().complete();
+            const txHash = await signedTx.submit();
+            
+            showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
+            console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+            return;
+            
+          } catch (e2) {
+            console.log('🔍 ❌ Fallback failed:', e2.message);
+            throw e; // Throw original script transaction error
+          }
         }
-        
-        console.log('🔍 Building full transaction - last attempt...');
-        const tx = await lucid
-          .newTx()
-          .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-          .collectFrom([scriptUtxo], redeemerData)
-          .attachSpendingValidator(validator)
-          .complete();
+
         
         console.log('🟢 Transaction built, requesting wallet to sign');
         const signedTx = await lucid.wallet.signTx(tx);
