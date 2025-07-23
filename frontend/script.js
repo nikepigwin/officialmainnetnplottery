@@ -1008,9 +1008,14 @@ async function buyTicketsForLottery(ticketCount) {
     if (!lucid || !lucid.wallet) {
       throw new Error('Please connect your wallet first');
     }
+    
+    // Get the current script address from the backend
+    const configResponse = await fetchAPI('/api/blockfrost-config');
+    const actualScriptAddress = configResponse.scriptAddress || scriptAddress;
+    
     // Fetch UTxOs
-    console.log('🔍 Fetching UTxOs at script address:', scriptAddress);
-    const utxos = await lucid.utxosAt(scriptAddress);
+    console.log('🔍 Fetching UTxOs at script address:', actualScriptAddress);
+    const utxos = await lucid.utxosAt(actualScriptAddress);
     console.log('Script UTxOs:', utxos);
     // Select only UTxOs with a valid, non-empty datum (fields.length === 5)
     const validUtxo = utxos.find((u) => {

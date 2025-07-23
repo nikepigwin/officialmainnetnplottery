@@ -196,6 +196,7 @@ router.get("/api/blockfrost-config", (ctx) => {
   ctx.response.body = {
     url: BLOCKFROST_URL,
     projectId: BLOCKFROST_API_KEY,
+    scriptAddress: SCRIPT_ADDRESS,
   };
 });
 
