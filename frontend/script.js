@@ -328,6 +328,14 @@ let selectedToken = 'lovelace';
 let tokenPrices = {};
 let priceUpdateInterval = null;
 
+// 🕒 COUNTDOWN TIMER STATE (3-minute rounds)
+let countdownTimer = null;
+let roundStartTime = null;
+let roundDuration = 3 * 60 * 1000; // 3 minutes in milliseconds
+
+// 🔔 WEBSOCKET NOTIFICATIONS
+let websocket = null;
+
 // Initialize Lucid for transaction building
 async function initializeLucid() {
   // Debug: Log Blockfrost and network setup
@@ -688,7 +696,15 @@ async function refreshStats() {
         } else {
             console.log('❌ totalTickets element not found');
         }
-        if (timeUntilDraw) timeUntilDraw.textContent = stats.timeUntilDrawFormatted || '-';
+        
+        // 🕒 Update countdown timer with backend round start time
+        if (stats.roundStartTime) {
+            startCountdownTimer(stats.roundStartTime);
+        } else if (roundStartTime === null) {
+            // Start countdown from now if no backend time available
+            startCountdownTimer(Date.now());
+        }
+        
         if (lotteryStatus) {
             lotteryStatus.textContent = stats.salesOpen ? 'Open' : 'Closed';
             if (stats.salesOpen) {
@@ -1292,8 +1308,9 @@ async function buyTicketsForLottery(ticketCount) {
               console.log('🎟️ Contract payment submitted! Tx Hash:', txHash);
               
               // Confirm ticket purchase with backend
+              console.log('🔄 Starting backend confirmation...');
               try {
-                await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
+                const confirmResponse = await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -1303,9 +1320,15 @@ async function buyTicketsForLottery(ticketCount) {
                     poolWalletAddress: poolWalletAddress
                   })
                 });
-                console.log('✅ Ticket purchase confirmed with backend');
+                
+                if (confirmResponse.ok) {
+                  const confirmResult = await confirmResponse.json();
+                  console.log('✅ Ticket purchase confirmed with backend:', confirmResult);
+                } else {
+                  console.error('❌ Backend confirmation failed:', confirmResponse.status, await confirmResponse.text());
+                }
               } catch (confirmError) {
-                console.warn('⚠️ Failed to confirm purchase with backend:', confirmError);
+                console.error('❌ Failed to confirm purchase with backend:', confirmError);
               }
               
               return;
@@ -1329,8 +1352,9 @@ async function buyTicketsForLottery(ticketCount) {
                 console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
                 
                 // Confirm ticket purchase with backend
+                console.log('🔄 Starting backend confirmation (fallback)...');
                 try {
-                  await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
+                  const confirmResponse = await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1340,9 +1364,15 @@ async function buyTicketsForLottery(ticketCount) {
                       poolWalletAddress: poolWalletAddress
                     })
                   });
-                  console.log('✅ Ticket purchase confirmed with backend');
+                  
+                  if (confirmResponse.ok) {
+                    const confirmResult = await confirmResponse.json();
+                    console.log('✅ Ticket purchase confirmed with backend (fallback):', confirmResult);
+                  } else {
+                    console.error('❌ Backend confirmation failed (fallback):', confirmResponse.status, await confirmResponse.text());
+                  }
                 } catch (confirmError) {
-                  console.warn('⚠️ Failed to confirm purchase with backend:', confirmError);
+                  console.error('❌ Failed to confirm purchase with backend (fallback):', confirmError);
                 }
                 
                 return;
@@ -2135,6 +2165,12 @@ async function init() {
     
     // Start sales status monitoring
     startSalesStatusMonitoring();
+    
+    // 🔔 Connect WebSocket for real-time notifications
+    connectWebSocket();
+    
+    // 🕒 Start initial countdown timer
+    startCountdownTimer(Date.now());
 }
 
 // Update total cost display
@@ -2230,6 +2266,118 @@ function showWinnerBanner(prizeAmount, txHash, status) {
 function hideWinnerBanner() {
   const banner = document.getElementById('winnerBanner');
   if (banner) banner.style.display = 'none';
+}
+
+// 🕒 COUNTDOWN TIMER FUNCTIONS
+function updateCountdown() {
+  if (!roundStartTime || !timeUntilDraw) return;
+  
+  const now = Date.now();
+  const elapsed = now - roundStartTime;
+  const remaining = Math.max(0, roundDuration - elapsed);
+  
+  if (remaining <= 0) {
+    timeUntilDraw.textContent = "Drawing...";
+    return;
+  }
+  
+  const minutes = Math.floor(remaining / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  timeUntilDraw.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function startCountdownTimer(startTime) {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+  }
+  
+  roundStartTime = startTime || Date.now();
+  console.log(`⏰ Starting countdown timer for round at ${new Date(roundStartTime).toISOString()}`);
+  
+  // Update immediately
+  updateCountdown();
+  
+  // Update every second
+  countdownTimer = setInterval(updateCountdown, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+    console.log('⏹️ Countdown timer stopped');
+  }
+}
+
+// 🔔 WEBSOCKET FUNCTIONS
+function connectWebSocket() {
+  try {
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/api/lottery/ws';
+    console.log('🔌 Connecting to WebSocket:', wsUrl);
+    
+    websocket = new WebSocket(wsUrl);
+    
+    websocket.onopen = () => {
+      console.log('✅ WebSocket connected');
+    };
+    
+    websocket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 WebSocket message:', data);
+        
+        if (data.type === 'pool_update') {
+          // Handle rollover notifications
+          if (data.data.rollover) {
+            showNotification(`🔄 Round rolled over! Pool: ${data.data.poolAmount.toFixed(2)} ADA. Need ${data.data.minimumParticipants - data.data.participantCount} more participants.`, 'info');
+          } else if (data.data.freshRound) {
+            showNotification(`🎰 Fresh round started! Previous round distributed ${data.data.previousRound.pool.toFixed(2)} ADA after ${data.data.previousRound.rollovers} rollovers.`, 'success');
+          }
+          
+          // Update round timer
+          if (data.data.roundNumber) {
+            startCountdownTimer(Date.now());
+          }
+          
+          // Refresh stats
+          refreshStats();
+        } else if (data.type === 'winner_announcement') {
+          // Handle winner announcements
+          const winners = data.data.winners || [];
+          const winnerCount = winners.length;
+          const pool = data.data.totalPool || 0;
+          
+          showNotification(`🏆 Winners selected! ${winnerCount} winners from ${pool.toFixed(2)} ADA pool!`, 'success');
+          
+          // Show individual winners
+          winners.forEach((winner, index) => {
+            setTimeout(() => {
+              showNotification(`${winner.position}. ${winner.address.substring(0, 20)}... won ${winner.amount.toFixed(2)} ADA!`, 'success');
+            }, (index + 1) * 2000);
+          });
+          
+          // Refresh data
+          setTimeout(() => {
+            refreshStats();
+            refreshWinners();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('❌ Error parsing WebSocket message:', error);
+      }
+    };
+    
+    websocket.onclose = () => {
+      console.log('🔌 WebSocket disconnected, attempting to reconnect...');
+      setTimeout(connectWebSocket, 5000);
+    };
+    
+    websocket.onerror = (error) => {
+      console.error('❌ WebSocket error:', error);
+    };
+  } catch (error) {
+    console.error('❌ Failed to connect WebSocket:', error);
+  }
 }
 
 // Sales status monitoring functions
