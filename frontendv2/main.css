@@ -278,15 +278,168 @@ header {
 }
 
 .dashboard-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    max-width: 600px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
 .dashboard-panel {
     padding: 24px;
+}
+
+/* Pool Info Panel (Left Column) */
+.pool-info-panel {
+    background: linear-gradient(135deg, #1a2332 0%, #233044 100%);
+    border: 1px solid #3a4a5c;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+/* Pool & Timer Section */
+.pool-timer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pool-amount-card, .timer-card {
+    background: linear-gradient(135deg, #233044 0%, #2a3d54 100%);
+    border: 1px solid #4a5a6c;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.pool-amount-card:hover, .timer-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 255, 136, 0.1);
+    border-color: #00ff88;
+}
+
+.timer-card:hover {
+    box-shadow: 0 8px 32px rgba(255, 107, 53, 0.1);
+    border-color: #ff6b35;
+}
+
+.pool-amount-icon, .timer-icon {
+    font-size: 32px;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.pool-amount-content, .timer-content {
+    flex: 1;
+}
+
+.pool-amount-label, .timer-label {
+    font-size: 13px;
+    color: #8892a6;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 500;
+}
+
+.pool-amount-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #00ff88;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+    line-height: 1;
+}
+
+.timer-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #ff6b35;
+    text-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+    line-height: 1;
+}
+
+/* Lottery Statistics Section */
+.lottery-stats-section {
+    border-top: 1px solid #3a4a5c;
+    padding-top: 24px;
+}
+
+.stats-header {
+    margin-bottom: 20px;
+}
+
+.stats-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+    margin: 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #233044 0%, #2a3d54 100%);
+    border: 1px solid #4a5a6c;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 171, 255, 0.1);
+    border-color: #00abff;
+}
+
+.stat-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(0, 171, 255, 0.1);
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #8892a6;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #00abff;
+    line-height: 1;
 }
 
 /* Wallet Panel */
@@ -1247,6 +1400,31 @@ header {
     .dashboard-grid {
         grid-template-columns: 1fr;
         gap: 20px;
+    }
+    
+    /* Mobile responsiveness for stats grid */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .pool-amount-card, .timer-card {
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .pool-amount-icon, .timer-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 28px;
+    }
+    
+    .pool-amount-value {
+        font-size: 24px;
+    }
+    
+    .timer-value {
+        font-size: 18px;
     }
 
     .trading-header {

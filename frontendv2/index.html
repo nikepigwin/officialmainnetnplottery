@@ -87,9 +87,57 @@
             <!-- Trading Dashboard Section -->
             <section class="card trading-dashboard">
                 <div class="dashboard-grid">
-                    <!-- Ticket Trading -->
+                    <!-- Left Column: Pool Info & Timer -->
+                    <div class="dashboard-panel pool-info-panel">
+                        <!-- Main Pool & Timer Section -->
+                        <div class="pool-timer-section">
+                            <div class="pool-amount-card">
+                                <div class="pool-amount-icon">💰</div>
+                                <div class="pool-amount-content">
+                                    <div class="pool-amount-label">Total Pool</div>
+                                    <div class="pool-amount-value" id="total-pool-display">Loading...</div>
+                                </div>
+                            </div>
+                            
+                            <div class="timer-card">
+                                <div class="timer-icon">⏰</div>
+                                <div class="timer-content">
+                                    <div class="timer-label">Time Until Draw</div>
+                                    <div class="timer-value" id="countdown-timer-display">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Lottery Statistics Section -->
+                        <div class="lottery-stats-section">
+                            <div class="stats-header">
+                                <h4 class="stats-title">📊 Round Statistics</h4>
+                            </div>
+                            
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-icon">👥</div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Participants</div>
+                                        <div class="stat-value" id="total-participants-display">0</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-card">
+                                    <div class="stat-icon">🎫</div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Total Tickets</div>
+                                        <div class="stat-value" id="total-tickets-display">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Ticket Trading -->
                     <div class="dashboard-panel trading-panel">
                         <div class="trading-header">
+                            <!-- Wallet connection moved to right column with ticket buying -->
                             <div class="wallet-connect-section">
                                 <div id="wallet-disconnected" class="wallet-status-compact">
                         <button id="connect-wallet-btn" class="btn btn-primary">Connect Wallet</button>
