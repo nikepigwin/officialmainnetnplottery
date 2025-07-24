@@ -310,9 +310,6 @@ header {
     border: 1px solid #4a5a6c;
     border-radius: 16px;
     padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -356,7 +353,11 @@ header {
 }
 
 .pool-amount-content, .timer-content {
-    flex: 1;
+    width: 100%;
+}
+
+.timer-content {
+    text-align: center;
 }
 
 .pool-amount-label, .timer-label {
@@ -1480,7 +1481,6 @@ header {
     
     .pool-amount-card, .timer-card {
         padding: 16px;
-        gap: 12px;
     }
     
     .pool-amount-icon, .timer-icon {
