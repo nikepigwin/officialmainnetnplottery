@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v1.1.0-no-websocket';
+const CACHE_NAME = 'nikepig-lottery-v1.2.0-custom-icons';
 const urlsToCache = [
   '/',
   '/index.html',
