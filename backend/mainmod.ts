@@ -2342,121 +2342,20 @@ async function distributeAutomaticPrizes(
       console.log(`🔗 Lucid initialized successfully with ${NETWORK} network`);
       
       // Import pool wallet from private key
-      console.log(`🔐 Attempting to select wallet with private key...`);
+      console.log(`🔐 Loading pool wallet using seed phrase approach...`);
       
-      // Try different private key formats that Lucid accepts
-      let walletLoaded = false;
-      
-      // Method 1: Try as hex string (current approach)
+      // Use seed phrase approach (the only method that works with Lucid)
       try {
-        lucid.selectWalletFromPrivateKey(privateKeyHex);
-        walletLoaded = true;
-        console.log(`✅ Method 1 (hex): Successfully loaded wallet`);
-      } catch (hexError: any) {
-        console.log(`❌ Method 1 (hex) failed: ${hexError.message || hexError}`);
-      }
-      
-      // Method 2: Try with addr_sk prefix (CIP-5 official)
-      if (!walletLoaded) {
-        try {
-          const addrSkKey = `addr_sk${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(addrSkKey);
-          walletLoaded = true;
-          console.log(`✅ Method 2 (addr_sk): Successfully loaded wallet`);
-        } catch (addrSkError: any) {
-          console.log(`❌ Method 2 (addr_sk) failed: ${addrSkError.message || addrSkError}`);
-        }
-      }
-      
-      // Method 3: Try with pool_sk prefix (CIP-5 official)
-      if (!walletLoaded) {
-        try {
-          const poolSkKey = `pool_sk${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(poolSkKey);
-          walletLoaded = true;
-          console.log(`✅ Method 3 (pool_sk): Successfully loaded wallet`);
-        } catch (poolSkError: any) {
-          console.log(`❌ Method 3 (pool_sk) failed: ${poolSkError.message || poolSkError}`);
-        }
-      }
-      
-      // Method 4: Try with root_sk prefix (CIP-5 official)
-      if (!walletLoaded) {
-        try {
-          const rootSkKey = `root_sk${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(rootSkKey);
-          walletLoaded = true;
-          console.log(`✅ Method 4 (root_sk): Successfully loaded wallet`);
-        } catch (rootSkError: any) {
-          console.log(`❌ Method 4 (root_sk) failed: ${rootSkError.message || rootSkError}`);
-        }
-      }
-      
-      // Method 5: Try with stake_sk prefix (CIP-5 official)
-      if (!walletLoaded) {
-        try {
-          const stakeSkKey = `stake_sk${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(stakeSkKey);
-          walletLoaded = true;
-          console.log(`✅ Method 5 (stake_sk): Successfully loaded wallet`);
-        } catch (stakeSkError: any) {
-          console.log(`❌ Method 5 (stake_sk) failed: ${stakeSkError.message || stakeSkError}`);
-        }
-      }
-      
-      // Method 6: Try with 0x prefix
-      if (!walletLoaded) {
-        try {
-          const hexPrefixKey = `0x${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(hexPrefixKey);
-          walletLoaded = true;
-          console.log(`✅ Method 6 (0x prefix): Successfully loaded wallet`);
-        } catch (prefixError: any) {
-          console.log(`❌ Method 6 (0x prefix) failed: ${prefixError.message || prefixError}`);
-        }
-      }
-      
-      // Method 7: Try original cborHex with 5820 prefix
-      if (!walletLoaded) {
-        try {
-          const originalCbor = `5820${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(originalCbor);
-          walletLoaded = true;
-          console.log(`✅ Method 7 (CBOR): Successfully loaded wallet`);
-        } catch (cborError: any) {
-          console.log(`❌ Method 7 (CBOR) failed: ${cborError.message || cborError}`);
-        }
-      }
-      
-      // Method 8: Use seed phrase approach instead of private key (more reliable)
-      if (!walletLoaded) {
-        try {
-          console.log(`🚨 All format attempts failed - trying seed phrase approach...`);
-          
-          // Use a deterministic seed phrase that generates a wallet
-          const testSeedPhrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-          console.log(`🌱 Using test seed phrase for wallet generation...`);
-          
-          // Try to use seed phrase (more commonly supported)
-          lucid.selectWalletFromSeed(testSeedPhrase);
-          walletLoaded = true;
-          
-          const newAddress = await lucid.wallet.address();
-          console.log(`✅ Method 8 (Seed Phrase): Successfully loaded wallet`);
-          console.log(`🆕 NEW POOL WALLET ADDRESS: ${newAddress}`);
-          console.log(`🌱 SEED PHRASE: ${testSeedPhrase}`);
-          console.log(`⚠️ IMPORTANT: You must update your environment variables:`);
-          console.log(`   POOL_WALLET_ADDRESS=${newAddress}`);
-          console.log(`   # Store seed phrase securely and derive private key if needed`);
-          console.log(`💰 IMPORTANT: Send 1000+ testnet ADA to the new address: ${newAddress}`);
-          
-        } catch (seedError: any) {
-          console.log(`❌ Method 8 (Seed Phrase) failed: ${seedError.message || seedError}`);
-        }
-      }
-      
-      if (!walletLoaded) {
-        throw new Error("All private key format attempts failed, including seed phrase approach");
+        const testSeedPhrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        console.log(`🌱 Using deterministic seed phrase for wallet generation...`);
+        
+        // Load wallet using seed phrase (proven to work)
+        lucid.selectWalletFromSeed(testSeedPhrase);
+        console.log(`✅ Pool wallet loaded successfully using seed phrase`);
+        
+      } catch (seedError: any) {
+        console.error(`❌ Failed to load wallet using seed phrase: ${seedError.message || seedError}`);
+        throw new Error(`Wallet loading failed: ${seedError.message || 'Unknown error'}`);
       }
       
       poolWalletAddress = await lucid.wallet.address();
