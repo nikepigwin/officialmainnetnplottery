@@ -2328,16 +2328,38 @@ async function distributeAutomaticPrizes(
     
     console.log(`🔑 Final private key length: ${privateKeyHex.length} characters`);
     
-    // Initialize Lucid with pool wallet
-    const lucid = await Lucid.new(
-      new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
-      NETWORK
-    );
+    // Initialize Lucid and wallet variables
+    let lucid: any;
+    let poolWalletAddress: string;
     
-    // Import pool wallet from private key
-    lucid.selectWalletFromPrivateKey(privateKeyHex);
-    const poolWalletAddress = await lucid.wallet.address();
-    console.log(`🏦 Using pool wallet: ${poolWalletAddress}`);
+    try {
+      // Initialize Lucid with pool wallet
+      lucid = await Lucid.new(
+        new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
+        NETWORK
+      );
+      
+      console.log(`🔗 Lucid initialized successfully with ${NETWORK} network`);
+      
+      // Import pool wallet from private key
+      console.log(`🔐 Attempting to select wallet with private key...`);
+      lucid.selectWalletFromPrivateKey(privateKeyHex);
+      
+      poolWalletAddress = await lucid.wallet.address();
+      console.log(`🏦 Using pool wallet: ${poolWalletAddress}`);
+      
+      // Verify this matches expected address
+      if (poolWalletAddress !== POOL_WALLET_ADDRESS) {
+        console.log(`⚠️ Address mismatch! Expected: ${POOL_WALLET_ADDRESS}, Got: ${poolWalletAddress}`);
+      } else {
+        console.log(`✅ Pool wallet address matches expected address`);
+      }
+    } catch (lucidError: any) {
+      console.error(`❌ Lucid error details:`, lucidError);
+      console.error(`❌ Error type:`, lucidError.constructor?.name || 'Unknown');
+      console.error(`❌ Error message:`, lucidError.message || 'No message');
+      throw new Error(`Lucid wallet selection failed: ${lucidError.message || 'Unknown error'}`);
+    }
     
     // Get pool wallet UTxOs
     const poolUtxos = await lucid.utxosAt(poolWalletAddress);
