@@ -2303,6 +2303,23 @@ async function distributeAutomaticPrizes(
       throw new Error("POOL_WALLET_PRIVATE_KEY not configured - cannot auto-distribute prizes");
     }
     
+    // Parse private key - handle both JSON and hex formats
+    let privateKeyHex: string;
+    try {
+      // Try to parse as JSON first (cardano-cli format)
+      const keyJson = JSON.parse(POOL_WALLET_PRIVATE_KEY);
+      if (keyJson.cborHex) {
+        privateKeyHex = keyJson.cborHex;
+        console.log("🔑 Using private key from JSON format (cardano-cli)");
+      } else {
+        throw new Error("JSON format but no cborHex field found");
+      }
+    } catch {
+      // If not JSON, treat as hex string directly
+      privateKeyHex = POOL_WALLET_PRIVATE_KEY;
+      console.log("🔑 Using private key as hex string");
+    }
+    
     // Initialize Lucid with pool wallet
     const lucid = await Lucid.new(
       new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
@@ -2310,7 +2327,7 @@ async function distributeAutomaticPrizes(
     );
     
     // Import pool wallet from private key
-    lucid.selectWalletFromPrivateKey(POOL_WALLET_PRIVATE_KEY);
+    lucid.selectWalletFromPrivateKey(privateKeyHex);
     const poolWalletAddress = await lucid.wallet.address();
     console.log(`🏦 Using pool wallet: ${poolWalletAddress}`);
     
