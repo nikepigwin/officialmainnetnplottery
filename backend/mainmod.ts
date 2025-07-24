@@ -311,21 +311,8 @@ async function processAutomatedRound() {
           // Continue with round reset even if distribution fails
         }
         
-        // 5. Broadcast winner announcement
-        // broadcastNotification({
-          type: 'winner_announcement',
-          message: `Round ${currentRoundState.roundNumber} winners selected! Pool: ${poolADA.toFixed(2)} ADA (after ${currentRoundState.rolledOverRounds} rollovers)`,
-          data: {
-            roundNumber: currentRoundState.roundNumber,
-            winners: winners,
-            totalPool: poolADA,
-            totalParticipants: participantCount,
-            totalTickets: currentRoundState.totalTickets,
-            rolledOverRounds: currentRoundState.rolledOverRounds,
-            finalRound: true
-          },
-          timestamp: new Date().toISOString()
-        });
+        // 5. WebSocket winner announcement removed
+        // broadcastNotification({...}) - WebSocket functionality disabled
       } else {
         console.log("⚠️ No participants - no winners to announce");
       }
@@ -349,23 +336,8 @@ async function processAutomatedRound() {
       
       console.log(`🔄 FRESH NEW ROUND ${currentRoundState.roundNumber} STARTED! Previous round processed after ${previousRollovers} rollovers.`);
       
-      // 6. Broadcast fresh round announcement
-      broadcastNotification({
-        type: 'pool_update',
-        message: `Fresh Round ${currentRoundState.roundNumber} started! Previous round: ${previousPool.toFixed(2)} ADA distributed after ${previousRollovers} rollovers.`,
-        data: {
-          roundNumber: currentRoundState.roundNumber,
-          salesOpen: true,
-          freshRound: true,
-          previousRound: {
-            number: previousRound,
-            pool: previousPool,
-            rollovers: previousRollovers,
-            winners: winners
-          }
-        },
-        timestamp: new Date().toISOString()
-      });
+      // 6. WebSocket fresh round announcement removed  
+      // broadcastNotification({...}) - WebSocket functionality disabled
     }
   } catch (error) {
     console.error("❌ Error in automated round processing:", error);
