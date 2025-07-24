@@ -452,11 +452,13 @@ header {
 }
 
 .stats-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #ffffff;
-    text-align: center;
+    font-size: 13px;
+    color: #8892a6;
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    text-align: center;
 }
 
 .stats-grid {
