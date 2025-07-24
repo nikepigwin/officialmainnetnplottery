@@ -14,14 +14,9 @@ let isStandalone = false;
 
 // Mobile detection and PWA setup
 function initializeMobileFeatures() {
-    console.log('📱 Initializing mobile features...');
-    
     // Detect mobile device
     isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    
-    console.log('📱 Mobile detected:', isMobile);
-    console.log('📱 Standalone mode:', isStandalone);
     
     // Add mobile-specific classes
     if (isMobile) {
@@ -33,7 +28,6 @@ function initializeMobileFeatures() {
     
     // Handle PWA install prompt
     window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('📱 PWA install prompt available');
         e.preventDefault();
         deferredPrompt = e;
         
@@ -45,7 +39,6 @@ function initializeMobileFeatures() {
     
     // Handle PWA installed event
     window.addEventListener('appinstalled', () => {
-        console.log('📱 PWA installed successfully');
         deferredPrompt = null;
         hidePWAInstallButton();
     });
@@ -59,7 +52,6 @@ function initializeMobileFeatures() {
 
 // Add touch event listeners for better mobile interaction
 function addTouchEventListeners() {
-    console.log('👆 Adding touch event listeners...');
     
     // Prevent zoom on double tap for buttons
     const buttons = document.querySelectorAll('.btn, .quantity-btn, .slider-arrow');
@@ -117,10 +109,8 @@ function handleViewportChanges() {
     
     function handleViewportChange(e) {
         if (e.matches) {
-            console.log('📱 Switched to mobile viewport');
             document.body.classList.add('mobile-viewport');
         } else {
-            console.log('🖥️ Switched to desktop viewport');
             document.body.classList.remove('mobile-viewport');
         }
     }
@@ -157,7 +147,6 @@ function showPWAInstallButton() {
         if (deferredPrompt) {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log('📱 PWA install outcome:', outcome);
             if (outcome === 'accepted') {
                 hidePWAInstallButton();
             }
