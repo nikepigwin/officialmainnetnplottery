@@ -2320,6 +2320,14 @@ async function distributeAutomaticPrizes(
       console.log("🔑 Using private key as hex string");
     }
     
+    // Strip CBOR wrapper if present (5820 = byte string of length 32)
+    if (privateKeyHex.startsWith("5820")) {
+      privateKeyHex = privateKeyHex.substring(4);
+      console.log("🔧 Stripped CBOR wrapper from private key");
+    }
+    
+    console.log(`🔑 Final private key length: ${privateKeyHex.length} characters`);
+    
     // Initialize Lucid with pool wallet
     const lucid = await Lucid.new(
       new Blockfrost(BLOCKFROST_URL, BLOCKFROST_API_KEY),
