@@ -15,5 +15,9 @@ services:
         value: https://cardano-preview.blockfrost.io/api/v0
       - key: POOL_WALLET_ADDRESS
         sync: false
+      - key: POOL_WALLET_PRIVATE_KEY
+        sync: false
       - key: ADMIN_WALLET_ADDRESS
+        sync: false
+      - key: SCRIPT_ADDRESS
         sync: false 
