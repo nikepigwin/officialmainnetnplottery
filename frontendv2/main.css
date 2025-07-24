@@ -648,29 +648,17 @@ header {
     position: relative;
 }
 
-.trading-title-section {
-    margin-bottom: 20px;
-}
-
-.trading-title {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #ffffff;
-    margin: 0 0 6px 0;
-    letter-spacing: 0.5px;
-}
-
 .ticket-price-display {
     font-size: 0.85rem;
     color: #3BC117;
     font-weight: 500;
+    text-align: center;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: rgba(59, 193, 23, 0.08);
+    border-radius: 8px;
+    border: 1px solid rgba(59, 193, 23, 0.2);
     opacity: 0.9;
-}
-
-.trading-divider {
-    height: 1px;
-    background: #233044;
-    margin: 0 0 12px 0;
 }
 
 .ticket-price {
@@ -681,6 +669,9 @@ header {
 
 .wallet-connect-section {
     flex-shrink: 0;
+    margin-bottom: 24px; /* Add spacing between wallet and token selection */
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .wallet-status-compact {
@@ -724,6 +715,7 @@ header {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    margin-top: -10px; /* Move content up since header was removed */
 }
 
 /* Token Selection Styles */
@@ -1553,9 +1545,11 @@ header {
         order: 2;
     }
 
-    .trading-title-section {
-        order: 1;
-        text-align: center;
+
+
+    .wallet-connect-section {
+        margin-bottom: 20px; /* Adjust spacing for mobile */
+        padding-bottom: 12px;
     }
 
     .wallet-status-compact {
