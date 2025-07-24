@@ -2297,36 +2297,10 @@ async function distributeAutomaticPrizes(
   console.log(`💰 Total pool: ${totalPoolADA.toFixed(2)} ADA`);
   
   try {
-    // Check if we have the pool wallet private key for automated signing
-    const POOL_WALLET_PRIVATE_KEY = Deno.env.get("POOL_WALLET_PRIVATE_KEY");
-    if (!POOL_WALLET_PRIVATE_KEY) {
-      throw new Error("POOL_WALLET_PRIVATE_KEY not configured - cannot auto-distribute prizes");
-    }
+    // Use seed phrase approach for pool wallet (no private key needed)
+    console.log(`🌱 Using seed phrase approach for automated prize distribution...`);
     
-    // Parse private key - handle both JSON and hex formats
-    let privateKeyHex: string;
-    try {
-      // Try to parse as JSON first (cardano-cli format)
-      const keyJson = JSON.parse(POOL_WALLET_PRIVATE_KEY);
-      if (keyJson.cborHex) {
-        privateKeyHex = keyJson.cborHex;
-        console.log("🔑 Using private key from JSON format (cardano-cli)");
-      } else {
-        throw new Error("JSON format but no cborHex field found");
-      }
-    } catch {
-      // If not JSON, treat as hex string directly
-      privateKeyHex = POOL_WALLET_PRIVATE_KEY;
-      console.log("🔑 Using private key as hex string");
-    }
-    
-    // Strip CBOR wrapper if present (5820 = byte string of length 32)
-    if (privateKeyHex.startsWith("5820")) {
-      privateKeyHex = privateKeyHex.substring(4);
-      console.log("🔧 Stripped CBOR wrapper from private key");
-    }
-    
-    console.log(`🔑 Final private key length: ${privateKeyHex.length} characters`);
+    // No private key parsing needed - using seed phrase approach
     
     // Initialize Lucid and wallet variables
     let lucid: any;
