@@ -2356,39 +2356,75 @@ async function distributeAutomaticPrizes(
         console.log(`❌ Method 1 (hex) failed: ${hexError.message || hexError}`);
       }
       
-      // Method 2: Try with ed25519_sk prefix
+      // Method 2: Try with addr_sk prefix (CIP-5 official)
       if (!walletLoaded) {
         try {
-          const bech32Key = `ed25519_sk1${privateKeyHex}`;
-          lucid.selectWalletFromPrivateKey(bech32Key);
+          const addrSkKey = `addr_sk${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(addrSkKey);
           walletLoaded = true;
-          console.log(`✅ Method 2 (ed25519_sk1): Successfully loaded wallet`);
-        } catch (bech32Error: any) {
-          console.log(`❌ Method 2 (ed25519_sk1) failed: ${bech32Error.message || bech32Error}`);
+          console.log(`✅ Method 2 (addr_sk): Successfully loaded wallet`);
+        } catch (addrSkError: any) {
+          console.log(`❌ Method 2 (addr_sk) failed: ${addrSkError.message || addrSkError}`);
         }
       }
       
-      // Method 3: Try with 0x prefix
+      // Method 3: Try with pool_sk prefix (CIP-5 official)
+      if (!walletLoaded) {
+        try {
+          const poolSkKey = `pool_sk${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(poolSkKey);
+          walletLoaded = true;
+          console.log(`✅ Method 3 (pool_sk): Successfully loaded wallet`);
+        } catch (poolSkError: any) {
+          console.log(`❌ Method 3 (pool_sk) failed: ${poolSkError.message || poolSkError}`);
+        }
+      }
+      
+      // Method 4: Try with root_sk prefix (CIP-5 official)
+      if (!walletLoaded) {
+        try {
+          const rootSkKey = `root_sk${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(rootSkKey);
+          walletLoaded = true;
+          console.log(`✅ Method 4 (root_sk): Successfully loaded wallet`);
+        } catch (rootSkError: any) {
+          console.log(`❌ Method 4 (root_sk) failed: ${rootSkError.message || rootSkError}`);
+        }
+      }
+      
+      // Method 5: Try with stake_sk prefix (CIP-5 official)
+      if (!walletLoaded) {
+        try {
+          const stakeSkKey = `stake_sk${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(stakeSkKey);
+          walletLoaded = true;
+          console.log(`✅ Method 5 (stake_sk): Successfully loaded wallet`);
+        } catch (stakeSkError: any) {
+          console.log(`❌ Method 5 (stake_sk) failed: ${stakeSkError.message || stakeSkError}`);
+        }
+      }
+      
+      // Method 6: Try with 0x prefix
       if (!walletLoaded) {
         try {
           const hexPrefixKey = `0x${privateKeyHex}`;
           lucid.selectWalletFromPrivateKey(hexPrefixKey);
           walletLoaded = true;
-          console.log(`✅ Method 3 (0x prefix): Successfully loaded wallet`);
+          console.log(`✅ Method 6 (0x prefix): Successfully loaded wallet`);
         } catch (prefixError: any) {
-          console.log(`❌ Method 3 (0x prefix) failed: ${prefixError.message || prefixError}`);
+          console.log(`❌ Method 6 (0x prefix) failed: ${prefixError.message || prefixError}`);
         }
       }
       
-      // Method 4: Try original cborHex with 5820 prefix
+      // Method 7: Try original cborHex with 5820 prefix
       if (!walletLoaded) {
         try {
           const originalCbor = `5820${privateKeyHex}`;
           lucid.selectWalletFromPrivateKey(originalCbor);
           walletLoaded = true;
-          console.log(`✅ Method 4 (CBOR): Successfully loaded wallet`);
+          console.log(`✅ Method 7 (CBOR): Successfully loaded wallet`);
         } catch (cborError: any) {
-          console.log(`❌ Method 4 (CBOR) failed: ${cborError.message || cborError}`);
+          console.log(`❌ Method 7 (CBOR) failed: ${cborError.message || cborError}`);
         }
       }
       
