@@ -368,6 +368,62 @@ header {
     font-weight: 500;
 }
 
+/* Multi-Token Pool Display */
+.pool-tokens-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.token-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.token-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 255, 136, 0.3);
+    transform: translateX(2px);
+}
+
+.token-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.token-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.token-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.token-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: #00ff88;
+    text-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+    min-width: 60px;
+    text-align: right;
+}
+
+/* Legacy pool value style (keeping for compatibility) */
 .pool-amount-value {
     font-size: 28px;
     font-weight: 700;
@@ -1440,6 +1496,26 @@ header {
     
     .pool-amount-value {
         font-size: 24px;
+    }
+    
+    /* Mobile responsiveness for token display */
+    .token-row {
+        padding: 6px 10px;
+        gap: 8px;
+    }
+    
+    .token-logo {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .token-name {
+        font-size: 12px;
+    }
+    
+    .token-amount {
+        font-size: 14px;
+        min-width: 50px;
     }
     
     .timer-value {
