@@ -1,11 +1,11 @@
-const CACHE_NAME = 'nikepig-lottery-v1.0.0';
+const CACHE_NAME = 'nikepig-lottery-v1.1.0-no-websocket';
 const urlsToCache = [
   '/',
   '/index.html',
   '/main.css',
   '/script.js',
-  '/manifest.json',
-  '/offline.html'
+  '/manifest.json'
+  // '/offline.html' - removed, file doesn't exist
 ];
 
 // Install event - cache resources
@@ -28,9 +28,9 @@ self.addEventListener('fetch', event => {
         return response || fetch(event.request);
       })
       .catch(() => {
-        // Return offline page for navigation requests
+        // Return main page for navigation requests (offline.html removed)
         if (event.request.mode === 'navigate') {
-          return caches.match('/offline.html');
+          return caches.match('/index.html');
         }
       })
   );
