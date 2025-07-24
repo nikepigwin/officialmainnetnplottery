@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1a2332">
+    <meta name="description" content="Decentralized lottery platform on Cardano blockchain">
+    <meta name="keywords" content="cardano, lottery, ada, blockchain, decentralized">
+    
+    <title>Nikepig Lottery dApp</title>
+    
+    <!-- Icons -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+    
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div class="container">
+        <header class="card">
+            <h1 class="jackpot-header">Cardano Jackpot</h1>
+            <div class="header-stats">
+                <div class="header-stat pool-slider-container">
+                    <div class="pool-slides">
+                        <!-- Slide 1: All tokens overview -->
+                        <div class="pool-slide active" data-slide="0">
+                            <div class="pool-overview">
+                                <div class="pool-token-grid">
+                                    <div class="pool-token-item">
+                                        <div class="pool-token-value" id="poolADA">0</div>
+                                        <div class="pool-token-label">ADA</div>
+                                    </div>
+                                    <div class="pool-token-item">
+                                        <div class="pool-token-value" id="poolSNEK">0</div>
+                                        <div class="pool-token-label">SNEK</div>
+                                    </div>
+                                    <div class="pool-token-item">
+                                        <div class="pool-token-value" id="poolNIKEPIG">0</div>
+                                        <div class="pool-token-label">NIKEPIG</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Slide 2: ADA only -->
+                        <div class="pool-slide" data-slide="1">
+                            <div class="pool-single-token">
+                                <div class="pool-token-value-large" id="poolADAOnly">0</div>
+                                <div class="pool-token-label-large">ADA</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Slide 3: SNEK only -->
+                        <div class="pool-slide" data-slide="2">
+                            <div class="pool-single-token">
+                                <div class="pool-token-value-large" id="poolSNEKOnly">0</div>
+                                <div class="pool-token-label-large">SNEK</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Slide 4: NIKEPIG only -->
+                        <div class="pool-slide" data-slide="3">
+                            <div class="pool-single-token">
+                                <div class="pool-token-value-large" id="poolNIKEPIGOnly">0</div>
+                                <div class="pool-token-label-large">NIKEPIG</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-stat">
+                    <div class="header-stat-value" id="timeUntilDraw">-</div>
+                </div>
+            </div>
+            <div class="header-labels">
+                <div class="header-label-container">
+                    <div class="header-label-with-arrows">
+                        <button class="slider-arrow slider-arrow-left" id="poolSliderLeft">‹</button>
+                        <span class="header-label mobile-hidden">Total Pool</span>
+                        <button class="slider-arrow slider-arrow-right" id="poolSliderRight">›</button>
+                    </div>
+                </div>
+                <div class="header-label mobile-hidden">Time Until Draw</div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Trading Dashboard Section -->
+            <section class="card trading-dashboard">
+                <div class="dashboard-grid">
+                    <!-- Ticket Trading -->
+                    <div class="dashboard-panel trading-panel">
+                        <div class="trading-header">
+                            <div class="wallet-connect-section">
+                                <div id="wallet-disconnected" class="wallet-status-compact">
+                        <button id="connect-wallet-btn" class="btn btn-primary">Connect Wallet</button>
+                    </div>
+                                <div id="wallet-connected" class="wallet-status-compact" style="display: none;">
+                                    <div class="wallet-address-full" id="wallet-address">e0dd...614f</div>
+                        <button id="disconnectWalletBtn" class="btn btn-secondary">Disconnect</button>
+                    </div>
+                </div>
+                        </div>
+
+                        <div class="trading-form">
+                            <div class="trading-title-section">
+                                <h3 class="trading-title">Buy Lottery Tickets</h3>
+                                <div class="ticket-price-display">Price per ticket: 5.00 ADA</div>
+                            </div>
+                            <div class="trading-divider"></div>
+                            
+                            <div class="ticket-purchase-form">
+                                <!-- Token Selection -->
+                                <div class="token-selection">
+                                    <label class="form-label">Select Token:</label>
+                                    <div class="custom-dropdown">
+                                        <div class="dropdown-trigger" id="dropdown-trigger">
+                                            <div class="selected-token">
+                                                <div class="token-icon">
+                                                    <img src="img/cardanologo.png" alt="Cardano" class="token-logo">
+                                                </div>
+                                                <div class="token-details">
+                                                    <div class="token-name">ADA</div>
+                                                </div>
+                                            </div>
+                                            <div class="dropdown-arrow">▼</div>
+                                        </div>
+                                        <div class="dropdown-options" id="dropdown-options">
+                                            <!-- Token options will be populated dynamically by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Quantity Selection -->
+                            <div class="quantity-controls">
+                                    <label class="form-label">Number of Tickets:</label>
+                                <div class="quantity-input-group">
+                                    <button id="minus-ticket" class="quantity-btn">−</button>
+                                    <input type="number" id="ticket-amount" min="1" max="100" value="1" class="quantity-input">
+                                    <button id="plus-ticket" class="quantity-btn">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="trading-summary">
+                                <div class="summary-row">
+                                    <span>Quantity:</span>
+                                    <span id="summary-quantity">1</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>Total Cost:</span>
+                                    <span id="ticket-total">5.00 ADA</span>
+                                </div>
+                            </div>
+                            
+                            <button id="buy-tickets" class="btn btn-success trading-btn">Buy Tickets</button>
+                        </div>
+                        
+                        <div id="transactionStatus" class="transaction-status"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Lottery Stats Section -->
+            <section class="card">
+                <h2>Lottery Statistics</h2>
+                <div id="lotteryStats">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="roundNumber">-</div>
+                            <div class="stat-label">Round Number</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalParticipants">-</div>
+                            <div class="stat-label">Total Participants</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalTickets">-</div>
+                            <div class="stat-label">Total Tickets</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="lotteryStatus">-</div>
+                            <div class="stat-label">Sales Status</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+
+
+
+            <!-- Winners Section -->
+            <section id="historical-winners-section" class="card-panel">
+                <h2 class="section-header">Lottery Winners</h2>
+                <div id="historicalWinnersList"></div>
+            </section>
+
+            <!-- Admin Section -->
+            <section class="card" id="adminSection" style="display: none;">
+                <h2>Admin Controls</h2>
+                <div id="adminSectionContent">
+                    <p><em>Use these controls to test the lottery cycle</em></p>
+                    <div class="admin-controls">
+                        <button id="close-round-btn" class="btn btn-warning">Close Round & Select Winners</button>
+                        <button id="distribute-prizes-btn" class="btn btn-danger">Distribute Prizes</button>
+                        <button id="start-new-round-btn" class="btn btn-success">Start New Round</button>
+                        <button id="view-history-btn" class="btn btn-info">View Round History</button>
+                        <a href="token-admin.html" class="btn btn-primary">Manage Tokens</a>
+                        <button id="initialize-contract-btn" class="btn btn-primary">🚀 Initialize Smart Contract</button>
+                    </div>
+                    <div id="adminStatus"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer Section -->
+        <footer class="card footer-section">
+            <div class="footer-tabs">
+                <button class="footer-tab" data-tab="more-info">More Information</button>
+                <button class="footer-tab" data-tab="contact-us">Contact Us</button>
+            </div>
+            <div class="footer-content">
+                <div id="more-info-content" class="footer-tab-content">
+                    <h3>About Cardano Lottery</h3>
+                    <p>The Cardano Lottery is a fully decentralized lottery platform built on the Cardano blockchain. Leveraging an off-chain mechanism, it automates reward distribution and employs a provably fair random selection process to determine winners based on ticket odds.</p>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <h4>How It Works</h4>
+                            <p>Purchase tickets using ADA and await the draw's countdown completion. If your wallet is selected as a winner, prizes are automatically deposited into your wallet. No manual claiming required. Enjoy a seamless and transparent lottery experience powered by the Cardano blockchain.</p>
+                        </div>
+                        <div class="info-item">
+                            <h4>Prize Distribution</h4>
+                            <p>Prizes are automatically distributed to winners' Cardano wallets immediately after each lottery round. The total prize pool is divided among three winners: 50% for first place, 30% for second place, and 20% for third place. To sustain the lottery dApp, a 2.5% commission is applied from the total pool, with an additional 2.5% allocated to a weekly jackpot, enhancing future rewards.</p>
+                        </div>
+                        <div class="info-item">
+                            <h4>Transparency</h4>
+                            <p>All transactions and lottery results are securely recorded on the Cardano blockchain, ensuring complete transparency and verifiability. A comprehensive Lottery Winners history, including transaction IDs, is publicly displayed on our website. Our audited smart contract is openly accessible for review. Visit the Contact tab to access the contract files or reach out with any questions.</p>
+                        </div>
+                        <div class="info-item">
+                            <h4>Smart Contract Pool Tracking</h4>
+                            <p>The lottery uses a hybrid approach for pool balance tracking: <strong>ADA amounts are tracked in the smart contract datum</strong> (🔗 indicator), while <strong>native tokens (SNEK, NIKEPIG) are stored in the pool wallet UTxOs</strong> (💼 indicator). This design ensures the smart contract maintains a single source of truth for ADA while allowing flexible multi-token support through the pool wallet architecture.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="contact-us-content" class="footer-tab-content">
+                    <h3>Get in Touch</h3>
+                    <p>Have questions or need support? We're here to help!</p>
+                    <div class="contact-grid">
+                        <div class="contact-item">
+                            <h4>Support</h4>
+                            <p>For technical support and general inquiries</p>
+                            <a href="mailto:support@nikepiglottery.com" class="contact-link">support@nikepiglottery.com</a>
+                        </div>
+                        <div class="contact-item">
+                            <h4>Community</h4>
+                            <p>Join our community discussions</p>
+                            <a href="https://discord.com/invite/RPwVazfB2G" target="_blank" class="contact-link">Discord Server</a>
+                        </div>
+                        <div class="contact-item">
+                            <h4>Documentation</h4>
+                            <p>Learn more about the lottery system</p>
+                            <a href="#" class="contact-link">Read Documentation</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Notification element -->
+    <div id="notification" class="notification" style="display: none;"></div>
+    
+    <!-- Spinner -->
+    <div id="spinner" class="spinner-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p id="spinner-message">Loading...</p>
+    </div>
+
+    <!-- Load Lucid from web module and then load app script.js only after Lucid is ready -->
+    <script type="module">
+      import { Lucid, Blockfrost, Data } from "https://unpkg.com/lucid-cardano@0.10.11/web/mod.js";
+      window.Lucid = Lucid;
+      window.Blockfrost = Blockfrost;
+      Lucid.Data = Data;
+      console.log('✅ Lucid loaded successfully from web module, Data attached');
+      // Dynamically load script.js only after Lucid is ready
+      const script = document.createElement('script');
+      script.src = 'script.js';
+      document.body.appendChild(script);
+    </script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
+ 
