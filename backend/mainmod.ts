@@ -282,22 +282,8 @@ async function processAutomatedRound() {
         currentRoundState.roundStartTime = Date.now();
         currentRoundState.salesOpen = true;
         
-        // Broadcast rollover notification
-        broadcastNotification({
-          type: 'pool_update',
-          message: `Round ${currentRoundState.roundNumber - 1} rolled over! Pool grows to ${poolADA.toFixed(2)} ADA. Need ${currentRoundState.minimumParticipants - participantCount} more participants.`,
-          data: {
-            roundNumber: currentRoundState.roundNumber,
-            salesOpen: true,
-            rollover: true,
-            rolledOverRounds: currentRoundState.rolledOverRounds,
-            participantCount: participantCount,
-            minimumParticipants: currentRoundState.minimumParticipants,
-            poolAmount: poolADA,
-            message: `Pool rolled over! Bigger prizes await!`
-          },
-          timestamp: new Date().toISOString()
-        });
+        // WebSocket notifications removed
+        // broadcastNotification(...) - WebSocket functionality disabled
         
         console.log(`🎰 ROUND ${currentRoundState.roundNumber} STARTED (rollover #${currentRoundState.rolledOverRounds}) - Pool: ${poolADA.toFixed(2)} ADA, Participants: ${participantCount}`);
         return; // Exit early, don't process winners
@@ -326,7 +312,7 @@ async function processAutomatedRound() {
         }
         
         // 5. Broadcast winner announcement
-        broadcastNotification({
+        // broadcastNotification({
           type: 'winner_announcement',
           message: `Round ${currentRoundState.roundNumber} winners selected! Pool: ${poolADA.toFixed(2)} ADA (after ${currentRoundState.rolledOverRounds} rollovers)`,
           data: {
@@ -1767,75 +1753,7 @@ interface NotificationEvent {
   timestamp: string;
 }
 
-// WebSocket connections storage
-const wsConnections = new Set<WebSocket>();
-
-// Broadcast notification to all connected clients
-function broadcastNotification(event: NotificationEvent) {
-  const message = JSON.stringify(event);
-  wsConnections.forEach(ws => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(message);
-    }
-  });
-}
-
-// WebSocket endpoint for real-time notifications
-router.get("/api/lottery/ws", (ctx) => {
-  const upgrade = ctx.request.headers.get("upgrade") || "";
-  if (upgrade.toLowerCase() != "websocket") {
-    ctx.response.status = 400;
-    return;
-  }
-
-  // In WebSocket upgrade logic, use the correct request object
-  const { socket, response } = Deno.upgradeWebSocket((ctx.request.originalRequest || ctx.request) as any);
-  
-  // Add connection to set
-  wsConnections.add(socket);
-  console.log("🔌 New WebSocket connection established");
-
-  // Handle WebSocket events
-  socket.onopen = () => {
-    console.log("✅ WebSocket connection opened");
-    // Send initial connection confirmation
-    socket.send(JSON.stringify({
-      type: 'connection_established',
-      message: 'Connected to lottery notifications',
-      timestamp: new Date().toISOString()
-    }));
-  };
-
-  socket.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log("📨 Received WebSocket message:", data);
-      
-      // Handle client messages (subscriptions, etc.)
-      if (data.type === 'subscribe') {
-        socket.send(JSON.stringify({
-          type: 'subscription_confirmed',
-          message: `Subscribed to ${data.channel}`,
-          timestamp: new Date().toISOString()
-        }));
-      }
-    } catch (error) {
-      console.error("❌ Error parsing WebSocket message:", error);
-    }
-  };
-
-  socket.onclose = () => {
-    console.log("🔌 WebSocket connection closed");
-    wsConnections.delete(socket);
-  };
-
-  socket.onerror = (error) => {
-    console.error("❌ WebSocket error:", error);
-    wsConnections.delete(socket);
-  };
-
-  return response;
-});
+// WebSocket functionality removed - not needed for automated prize distribution
 
 // Notification endpoints for triggering events
 router.post("/api/lottery/notify/pool-update", async (ctx) => {
