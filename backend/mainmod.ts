@@ -2343,7 +2343,58 @@ async function distributeAutomaticPrizes(
       
       // Import pool wallet from private key
       console.log(`🔐 Attempting to select wallet with private key...`);
-      lucid.selectWalletFromPrivateKey(privateKeyHex);
+      
+      // Try different private key formats that Lucid accepts
+      let walletLoaded = false;
+      
+      // Method 1: Try as hex string (current approach)
+      try {
+        lucid.selectWalletFromPrivateKey(privateKeyHex);
+        walletLoaded = true;
+        console.log(`✅ Method 1 (hex): Successfully loaded wallet`);
+      } catch (hexError: any) {
+        console.log(`❌ Method 1 (hex) failed: ${hexError.message || hexError}`);
+      }
+      
+      // Method 2: Try with ed25519_sk prefix
+      if (!walletLoaded) {
+        try {
+          const bech32Key = `ed25519_sk1${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(bech32Key);
+          walletLoaded = true;
+          console.log(`✅ Method 2 (ed25519_sk1): Successfully loaded wallet`);
+        } catch (bech32Error: any) {
+          console.log(`❌ Method 2 (ed25519_sk1) failed: ${bech32Error.message || bech32Error}`);
+        }
+      }
+      
+      // Method 3: Try with 0x prefix
+      if (!walletLoaded) {
+        try {
+          const hexPrefixKey = `0x${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(hexPrefixKey);
+          walletLoaded = true;
+          console.log(`✅ Method 3 (0x prefix): Successfully loaded wallet`);
+        } catch (prefixError: any) {
+          console.log(`❌ Method 3 (0x prefix) failed: ${prefixError.message || prefixError}`);
+        }
+      }
+      
+      // Method 4: Try original cborHex with 5820 prefix
+      if (!walletLoaded) {
+        try {
+          const originalCbor = `5820${privateKeyHex}`;
+          lucid.selectWalletFromPrivateKey(originalCbor);
+          walletLoaded = true;
+          console.log(`✅ Method 4 (CBOR): Successfully loaded wallet`);
+        } catch (cborError: any) {
+          console.log(`❌ Method 4 (CBOR) failed: ${cborError.message || cborError}`);
+        }
+      }
+      
+      if (!walletLoaded) {
+        throw new Error("All private key format attempts failed");
+      }
       
       poolWalletAddress = await lucid.wallet.address();
       console.log(`🏦 Using pool wallet: ${poolWalletAddress}`);
