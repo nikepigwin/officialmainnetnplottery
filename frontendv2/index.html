@@ -13,74 +13,13 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="main.css?v=1.11.0">
 </head>
 <body>
     <div class="container">
-        <header class="card">
+        <header>
             <h1 class="jackpot-header">Cardano Jackpot</h1>
-            <div class="header-stats">
-                <div class="header-stat pool-slider-container">
-                    <div class="pool-slides">
-                        <!-- Slide 1: All tokens overview -->
-                        <div class="pool-slide active" data-slide="0">
-                            <div class="pool-overview">
-                                <div class="pool-token-grid">
-                                    <div class="pool-token-item">
-                                        <div class="pool-token-value" id="poolADA">0</div>
-                                        <div class="pool-token-label">ADA</div>
-                                    </div>
-                                    <div class="pool-token-item">
-                                        <div class="pool-token-value" id="poolSNEK">0</div>
-                                        <div class="pool-token-label">SNEK</div>
-                                    </div>
-                                    <div class="pool-token-item">
-                                        <div class="pool-token-value" id="poolNIKEPIG">0</div>
-                                        <div class="pool-token-label">NIKEPIG</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Slide 2: ADA only -->
-                        <div class="pool-slide" data-slide="1">
-                            <div class="pool-single-token">
-                                <div class="pool-token-value-large" id="poolADAOnly">0</div>
-                                <div class="pool-token-label-large">ADA</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Slide 3: SNEK only -->
-                        <div class="pool-slide" data-slide="2">
-                            <div class="pool-single-token">
-                                <div class="pool-token-value-large" id="poolSNEKOnly">0</div>
-                                <div class="pool-token-label-large">SNEK</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Slide 4: NIKEPIG only -->
-                        <div class="pool-slide" data-slide="3">
-                            <div class="pool-single-token">
-                                <div class="pool-token-value-large" id="poolNIKEPIGOnly">0</div>
-                                <div class="pool-token-label-large">NIKEPIG</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="header-stat">
-                    <div class="header-stat-value" id="timeUntilDraw">-</div>
-                </div>
-            </div>
-            <div class="header-labels">
-                <div class="header-label-container">
-                    <div class="header-label-with-arrows">
-                        <button class="slider-arrow slider-arrow-left" id="poolSliderLeft">‹</button>
-                        <span class="header-label mobile-hidden">Total Pool</span>
-                        <button class="slider-arrow slider-arrow-right" id="poolSliderRight">›</button>
-                    </div>
-                </div>
-                <div class="header-label mobile-hidden">Time Until Draw</div>
-            </div>
+            <h2 class="jackpot-subheader">3 Winners hit the Jackpot daily</h2>
         </header>
 
         <main>
@@ -164,13 +103,18 @@
                             <!-- Wallet connection moved to right column with ticket buying -->
                             <div class="wallet-connect-section">
                                 <div id="wallet-disconnected" class="wallet-status-compact">
-                        <button id="connect-wallet-btn" class="btn btn-primary">Connect Wallet</button>
-                    </div>
+                                    <button id="connect-wallet-btn" class="btn btn-primary">Connect Wallet</button>
+                                </div>
                                 <div id="wallet-connected" class="wallet-status-compact" style="display: none;">
                                     <div class="wallet-address-full" id="wallet-address">e0dd...614f</div>
-                        <button id="disconnectWalletBtn" class="btn btn-secondary">Disconnect</button>
-                    </div>
-                </div>
+                                    <button id="disconnectWalletBtn" class="btn btn-secondary">Disconnect</button>
+                                </div>
+                                <!-- User's tickets display -->
+                                <div id="my-tickets-section" class="my-tickets-section" style="display: none;">
+                                    <div class="my-tickets-label">My Tickets:</div>
+                                    <div class="my-tickets-count" id="my-tickets-display">0</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="trading-form">
@@ -228,30 +172,7 @@
                 </div>
             </section>
 
-            <!-- Lottery Stats Section -->
-            <section class="card">
-                <h2>Lottery Statistics</h2>
-                <div id="lotteryStats">
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-value" id="roundNumber">-</div>
-                            <div class="stat-label">Round Number</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="totalParticipants">-</div>
-                            <div class="stat-label">Total Participants</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="totalTickets">-</div>
-                            <div class="stat-label">Total Tickets</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="lotteryStatus">-</div>
-                            <div class="stat-label">Sales Status</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+
 
 
 
@@ -353,7 +274,7 @@
       console.log('✅ Lucid loaded successfully from web module, Data attached');
       // Dynamically load script.js only after Lucid is ready
       const script = document.createElement('script');
-      script.src = 'script.js';
+      script.src = 'script.js?v=1.5.0';
       document.body.appendChild(script);
     </script>
     

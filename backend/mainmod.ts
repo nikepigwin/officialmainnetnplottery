@@ -1562,6 +1562,35 @@ router.get("/api/lottery/winners", async (ctx) => {
   }
 });
 
+// Public endpoint: Get user's tickets for current round
+router.get("/api/lottery/my-tickets", async (ctx) => {
+  try {
+    const address = ctx.request.url.searchParams.get("address");
+    if (!address) {
+      ctx.response.status = 400;
+      ctx.response.body = { success: false, error: "Address parameter required" };
+      return;
+    }
+    
+    // Find user in current round participants
+    const participant = currentRoundState.participants.find(p => p.address === address);
+    const myTickets = participant ? participant.ticketCount : 0;
+    
+    ctx.response.body = {
+      success: true,
+      address: address,
+      tickets: myTickets,
+      roundNumber: currentRoundState.roundNumber,
+      salesOpen: currentRoundState.salesOpen,
+      lastUpdated: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("Error fetching user tickets:", error);
+    ctx.response.status = 500;
+    ctx.response.body = { success: false, error: "Failed to fetch user tickets" };
+  }
+});
+
 // 3. Admin endpoints (dummy logic, ready for integration)
 function isAdmin(ctx: any) {
   // Simple admin check (improve with real auth)

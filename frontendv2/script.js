@@ -305,7 +305,7 @@ let walletApi = null;
 // DOM Elements - will be initialized when DOM is ready
 let poolAmount, lotteryForm, notification;
 let connectWalletBtn, disconnectWalletBtn, walletAddressSpan, walletBalanceSpan;
-let roundNumber, totalPool, totalParticipants, totalTickets, timeUntilDraw, lotteryStatus;
+let totalPool, timeUntilDraw;
 let ticketCountInput, totalCostSpan;
 let spinner;
 let walletDisconnected, walletConnected;
@@ -545,6 +545,14 @@ function formatADA(amount) {
     return `${Number(amount).toFixed(2)} ADA`;
 }
 
+function formatAmountOnly(amount) {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+        console.log('🔍 formatAmountOnly received invalid amount:', amount);
+        return '0.00';
+    }
+    return `${Number(amount).toFixed(2)}`;
+}
+
 function formatAddress(address) {
     if (!address || typeof address !== 'string') {
         console.log('🔍 formatAddress received invalid address:', address);
@@ -665,26 +673,14 @@ async function refreshStats() {
             salesOpen: stats.salesOpen
         });
         
-        if (roundNumber) {
-            roundNumber.textContent = stats.roundNumber || 1; // Default to 1 if not set
-            console.log('✅ Updated roundNumber:', roundNumber.textContent);
-        } else {
-            console.log('❌ roundNumber element not found');
-        }
+
         
-        if (totalParticipants) {
-            totalParticipants.textContent = stats.totalParticipants || 0;
-            console.log('✅ Updated totalParticipants:', totalParticipants.textContent);
-        } else {
-            console.log('❌ totalParticipants element not found');
-        }
+        // 🎯 UPDATE LEFT COLUMN: Connect statistics to left column elements
+        const leftTotalParticipants = document.getElementById('total-participants-display');
+        const leftTotalTickets = document.getElementById('total-tickets-display');
         
-        if (totalTickets) {
-            totalTickets.textContent = stats.totalTickets || 0;
-            console.log('✅ Updated totalTickets:', totalTickets.textContent);
-        } else {
-            console.log('❌ totalTickets element not found');
-        }
+        if (leftTotalParticipants) leftTotalParticipants.textContent = stats.totalParticipants || 0;
+        if (leftTotalTickets) leftTotalTickets.textContent = stats.totalTickets || 0;
         
         // 🕒 Update countdown timer with backend round start time
         if (stats.roundStartTime) {
@@ -694,21 +690,7 @@ async function refreshStats() {
             startCountdownTimer(Date.now());
         }
         
-        if (lotteryStatus) {
-            lotteryStatus.textContent = stats.salesOpen ? 'Open' : 'Closed';
-            if (stats.salesOpen) {
-                lotteryStatus.style.color = '#3BC117';
-                lotteryStatus.textContent = 'Open';
-                lotteryStatus.classList.remove('status-transitioning');
-            } else {
-                lotteryStatus.style.color = '#dc2626';
-                lotteryStatus.textContent = 'Closed';
-                if (lastSalesStatus === true) {
-                    lotteryStatus.classList.add('status-transitioning');
-                    lotteryStatus.textContent = 'Closed (Transitioning...)';
-                }
-            }
-        }
+
         // Update pool values with detailed logging
         console.log('🔄 Updating pool values:', stats.multiTokenPool);
         const poolElements = {
@@ -739,6 +721,15 @@ async function refreshStats() {
         if (poolElements.poolADAOnly) poolElements.poolADAOnly.textContent = adaAmount.toFixed(2);
         if (poolElements.poolSNEKOnly) poolElements.poolSNEKOnly.textContent = snekAmount.toFixed(2);
         if (poolElements.poolNIKEPIGOnly) poolElements.poolNIKEPIGOnly.textContent = nikepigAmount.toFixed(2);
+        
+        // 🎯 UPDATE LEFT COLUMN: Connect pool amounts to left column elements
+        const leftPoolADA = document.getElementById('pool-ada-amount');
+        const leftPoolSNEK = document.getElementById('pool-snek-amount');
+        const leftPoolNIKEPIG = document.getElementById('pool-nikepig-amount');
+        
+        if (leftPoolADA) leftPoolADA.textContent = adaAmount.toFixed(2);
+        if (leftPoolSNEK) leftPoolSNEK.textContent = snekAmount.toFixed(2);
+        if (leftPoolNIKEPIG) leftPoolNIKEPIG.textContent = nikepigAmount.toFixed(0); // NIKEPIG as integer
         
         console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount });
         console.log('✅ Stats updated successfully');
@@ -773,6 +764,37 @@ async function fetchAndShowPrizeStatus() {
   } catch (e) {
     console.log('Prize status check failed:', e);
     hideWinnerBanner();
+  }
+}
+
+// Fetch and display user's tickets
+async function fetchAndDisplayUserTickets() {
+  try {
+    if (!window.currentUserAddress) {
+      console.log('No wallet connected, skipping user tickets fetch');
+      return;
+    }
+    
+    const response = await fetchAPI(`/api/lottery/my-tickets?address=${window.currentUserAddress}`);
+    if (response.success) {
+      console.log('User tickets data:', response);
+      
+      const myTicketsDisplay = document.getElementById('my-tickets-display');
+      const myTicketsSection = document.getElementById('my-tickets-section');
+      
+      if (myTicketsDisplay && myTicketsSection) {
+        myTicketsDisplay.textContent = response.tickets;
+        
+        // Show section if user has tickets, hide if 0
+        if (response.tickets > 0) {
+          myTicketsSection.style.display = 'flex';
+        } else {
+          myTicketsSection.style.display = 'none';
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch user tickets:', error);
   }
 }
 
@@ -854,74 +876,115 @@ async function refreshWinners() {
         if (!flatHistoricalWinners || flatHistoricalWinners.length === 0) {
             historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
         } else {
-            // Group winners by transaction hash (same round = same transaction)
-            const groupedByTx = {};
+            // Group winners by round number (same round = same box)
+            const groupedByRound = {};
             flatHistoricalWinners.forEach(winner => {
-                const txHash = winner.txHash || 'no-tx';
-                if (!groupedByTx[txHash]) {
-                    groupedByTx[txHash] = {
+                const roundKey = winner.roundNumber || 'unknown-round';
+                if (!groupedByRound[roundKey]) {
+                    groupedByRound[roundKey] = {
                         winners: [],
                         timestamp: winner.timestamp,
-                        roundNumber: winner.roundNumber
+                        roundNumber: winner.roundNumber,
+                        txHash: winner.txHash // Use first winner's txHash for the group
                     };
                 }
-                groupedByTx[txHash].winners.push(winner);
+                groupedByRound[roundKey].winners.push(winner);
             });
             
             // Sort groups by timestamp (most recent first)
-            const sortedGroups = Object.entries(groupedByTx).sort((a, b) => {
+            const sortedGroups = Object.entries(groupedByRound).sort((a, b) => {
                 const timestampA = a[1].timestamp ? new Date(a[1].timestamp) : new Date(0);
                 const timestampB = b[1].timestamp ? new Date(b[1].timestamp) : new Date(0);
                 return timestampB - timestampA;
             });
             
             let html = '<div class="historical-winners-container">';
-            sortedGroups.forEach(([txHash, group]) => {
-                // Sort winners within group by position
-                const sortedWinners = group.winners.sort((a, b) => a.position - b.position);
+            
+                        // Use only real data - limit to 7 most recent rounds
+            const limitedGroups = sortedGroups.slice(0, 7);
+            
+            if (limitedGroups.length === 0) {
+                historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
+                return;
+            }
+            
+            limitedGroups.forEach(([roundKey, group]) => {
+                // Sort winners within group by position (1st, 2nd, 3rd place)
+                const sortedWinners = group.winners.sort((a, b) => {
+                    // Sort by position (1st place first, 3rd place last)
+                    const positionA = a.position || 0;
+                    const positionB = b.position || 0;
+                    return positionA - positionB;
+                });
                 
                 html += '<div class="winner-group">';
                 
-                // Add all winners in this group
+                // Add round info header - only show date
+                const timestamp = group.timestamp ? new Date(group.timestamp) : null;
+                const formattedDate = timestamp ? `${timestamp.getDate()}-${timestamp.getMonth() + 1}-${timestamp.getFullYear()}` : '';
+                html += `<div class="winner-group-header">${formattedDate || 'Recent Round'}</div>`;
+                
+                // Add compact winners grid (3 winners in one box)
+                html += '<div class="winners-grid">';
                 sortedWinners.forEach(winner => {
-                    // Add better null checking for winner data
-                    const position = winner.positionText || (winner.position ? `#${winner.position}` : '#?');
                     const address = winner.address || 'Unknown Address';
-                    const amount = winner.amountADA || winner.amount || 0;
                     
-                    console.log('🔍 Processing winner:', { 
-                        position: winner.position, 
-                        positionText: winner.positionText,
-                        address: winner.address, 
-                        amountADA: winner.amountADA,
-                        amount: winner.amount 
-                    });
-                    
+                    // Handle real token amounts from backend
+                    const amounts = [];
+                    if (winner.amountADA || winner.amount) {
+                        amounts.push({
+                            amount: winner.amountADA || winner.amount,
+                            token: 'ADA'
+                        });
+                    }
+                    if (winner.amountSNEK) {
+                        amounts.push({
+                            amount: winner.amountSNEK,
+                            token: 'SNEK'
+                        });
+                    }
+                    if (winner.amountNIKEPIG) {
+                        amounts.push({
+                            amount: winner.amountNIKEPIG,
+                            token: 'NIKEPIG'
+                        });
+                    }
+
                     html += `
-                        <div class="winner-item">
-                            <div class="winner-main-row">
-                                <div class="winner-position">${position}</div>
+                        <div class="winner-compact">
+                            <div class="winner-info">
                                 <div class="winner-address">${formatAddress(address)}</div>
-                                <div class="winner-amount">${formatADA(amount)}</div>
+                                <div class="winner-amounts">
+                                    ${amounts.map(item => `
+                                        <div class="winner-amount-item">
+                                            <span class="winner-amount">${formatAmountOnly(item.amount)}</span>
+                                            <span class="winner-token">${item.token}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
                             </div>
-                            ${winner.timestamp ? `<div class="winner-timestamp">${new Date(winner.timestamp).toLocaleString()}</div>` : ''}
                         </div>
                     `;
                 });
+                html += '</div>'; // Close winners-grid
                 
-                // Add transaction link below the group (only if txHash exists)
-                if (txHash !== 'no-tx') {
-                    const txLink = `
-                        <div class="winner-tx-group">
-                            <a href="https://preview.cardanoscan.io/transaction/${txHash}" target="_blank" title="View transaction on Cardanoscan">
-                                Transaction ID: ${txHash.slice(0, 8)}...${txHash.slice(-8)}
-                            </a>
-                        </div>
-                    `;
-                    html += txLink;
-                }
+                // Add transaction button below the group with real transaction ID
+                const txHash = group.txHash || '';
+                const cardanoscanUrl = txHash ? 
+                    `https://preview.cardanoscan.io/transaction/${txHash}` : 
+                    '#';
                 
-                html += '</div>';
+                html += `
+                    <div class="winner-tx-group">
+                        <a href="${cardanoscanUrl}" target="_blank" 
+                           class="tx-button" title="View transaction on Cardanoscan"
+                           ${!txHash ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
+                            View Transaction
+                        </a>
+                    </div>
+                `;
+                
+                html += '</div>'; // Close winner-group
             });
             html += '</div>';
             console.log('🔍 Rendering historical winners:', html);
@@ -1008,6 +1071,7 @@ async function connectWallet() {
     // Refresh data
     await Promise.all([refreshStats(), refreshWinners()]);
     await fetchAndShowPrizeStatus();
+    await fetchAndDisplayUserTickets();
     
     // Reset buyTicketsBtn state
     const buyTicketsBtn = document.getElementById('buy-tickets');
@@ -1017,18 +1081,19 @@ async function connectWallet() {
     }
     
     // After successful connection:
-    const connectBtn = document.getElementById('connect-wallet-btn');
-    if (connectBtn) {
-      connectBtn.textContent = 'Disconnect Wallet';
-      connectBtn.classList.remove('btn-primary');
-      connectBtn.classList.add('btn-danger');
-      connectBtn.onclick = disconnectWallet;
-    }
-    const addrDiv = document.getElementById('wallet-address-top');
-    if (addrDiv) {
-      addrDiv.textContent = formatAddress(window.currentUserAddress);
-      addrDiv.style.display = 'block';
-    }
+    // Note: Don't modify connect button - we use separate wallet states now
+    // const connectBtn = document.getElementById('connect-wallet-btn');
+    // if (connectBtn) {
+    //   connectBtn.textContent = 'Disconnect Wallet';
+    //   connectBtn.classList.remove('btn-primary');
+    //   connectBtn.classList.add('btn-danger');
+    //   connectBtn.onclick = disconnectWallet;
+    // }
+    // const addrDiv = document.getElementById('wallet-address-top');
+    // if (addrDiv) {
+    //   addrDiv.textContent = formatAddress(window.currentUserAddress);
+    //   addrDiv.style.display = 'block';
+    // }
     
     updateAdminButtonState();
   } catch (error) {
@@ -1065,24 +1130,31 @@ function disconnectWallet() {
   
   showNotification('Wallet disconnected', 'info');
 
+  // Hide user tickets section
+  const myTicketsSection = document.getElementById('my-tickets-section');
+  if (myTicketsSection) {
+    myTicketsSection.style.display = 'none';
+  }
+
   // Reset buyTicketsBtn state
   const buyTicketsBtn = document.getElementById('buy-tickets');
   if (buyTicketsBtn) {
     buyTicketsBtn.textContent = 'Buy Tickets';
     buyTicketsBtn.disabled = false;
   }
-  const connectBtn = document.getElementById('connect-wallet-btn');
-  if (connectBtn) {
-    connectBtn.textContent = 'Connect Wallet';
-    connectBtn.classList.remove('btn-danger');
-    connectBtn.classList.add('btn-primary');
-    connectBtn.onclick = connectWallet;
-  }
-  const addrDiv = document.getElementById('wallet-address-top');
-  if (addrDiv) {
-    addrDiv.textContent = '';
-    addrDiv.style.display = 'none';
-  }
+  // Note: Don't modify connect button - we use separate wallet states now
+  // const connectBtn = document.getElementById('connect-wallet-btn');
+  // if (connectBtn) {
+  //   connectBtn.textContent = 'Connect Wallet';
+  //   connectBtn.classList.remove('btn-danger');
+  //   connectBtn.classList.add('btn-primary');
+  //   connectBtn.onclick = connectWallet;
+  // }
+  // const addrDiv = document.getElementById('wallet-address-top');
+  // if (addrDiv) {
+  //   addrDiv.textContent = '';
+  //   addrDiv.style.display = 'none';
+  // }
 
   updateAdminButtonState();
 }
@@ -1385,6 +1457,9 @@ async function buyTicketsForLottery(ticketCount) {
         showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
         console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
         
+        // Refresh user's tickets after successful purchase
+        await fetchAndDisplayUserTickets();
+        
       } catch (walletError) {
         showNotification('Transaction build/signing failed: ' + (walletError.message || walletError), 'error');
         console.error('❌ Transaction build/signing failed:', walletError);
@@ -1401,6 +1476,9 @@ async function buyTicketsForLottery(ticketCount) {
         const txHash = await lucid.wallet.submitTx(signedTx);
         showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
         console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
+        
+        // Refresh user's tickets after successful purchase
+        await fetchAndDisplayUserTickets();
       } catch (walletError) {
         showNotification('Wallet signing/submission failed: ' + (walletError.message || walletError), 'error');
         console.error('❌ Wallet signing/submission failed:', walletError);
@@ -1436,11 +1514,7 @@ function initializeDOMElements() {
   console.log('🔍 Initializing DOM elements...');
   
   // Main UI elements
-  roundNumber = document.getElementById('roundNumber');
-  totalParticipants = document.getElementById('totalParticipants');
-  totalTickets = document.getElementById('totalTickets');
   timeUntilDraw = document.getElementById('timeUntilDraw');
-  lotteryStatus = document.getElementById('lotteryStatus');
   
   // Form elements - use the correct IDs from the HTML
   ticketCountInput = document.getElementById('ticket-amount'); // Changed from 'ticketCount'
@@ -2265,14 +2339,15 @@ function updateCountdown() {
   const elapsed = now - roundStartTime;
   const remaining = Math.max(0, roundDuration - elapsed);
   
-  if (remaining <= 0) {
-    timeUntilDraw.textContent = "Drawing...";
-    return;
-  }
+  const displayText = remaining <= 0 ? "Drawing..." : 
+    `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
   
-  const minutes = Math.floor(remaining / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
-  timeUntilDraw.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  // Update original timer
+  timeUntilDraw.textContent = displayText;
+  
+  // 🎯 UPDATE LEFT COLUMN: Connect countdown timer to left column element
+  const leftCountdownTimer = document.getElementById('countdown-timer-display');
+  if (leftCountdownTimer) leftCountdownTimer.textContent = displayText;
 }
 
 function startCountdownTimer(startTime) {

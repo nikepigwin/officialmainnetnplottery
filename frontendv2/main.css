@@ -48,7 +48,7 @@ body {
 /* Header */
 header {
     margin-bottom: 40px;
-    padding: 20px 0;
+    text-align: center;
 }
 
 .jackpot-header {
@@ -56,201 +56,24 @@ header {
     font-weight: 700;
     color: #ffffff;
     text-align: center;
-    margin-bottom: 30px;
+    margin: 0 0 12px 0;
     letter-spacing: 2px;
     text-transform: uppercase;
 }
 
-.header-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 16px;
-    margin-bottom: 8px;
-}
-
-.header-stat {
-    background-color: #1a2332;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.header-stat-value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #3BC117;
-}
-
-/* Restore original .header-labels grid for all screen sizes */
-.header-labels {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 8px;
-    align-items: start;
-}
-
-.header-label-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.header-label-with-arrows {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.header-label {
-    font-size: 0.9rem;
-    color: #b8b8b8;
-    text-align: center;
+.jackpot-subheader {
+    font-size: 1.1rem;
     font-weight: 500;
-}
-
-/* Pool Slider Styles */
-.pool-slider-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-.pool-slides {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pool-slide {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
-
-.pool-slide.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* Slide 1: All tokens overview */
-.pool-overview {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pool-token-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 0 4px;
-}
-
-.pool-token-item {
+    color: #3BC117;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-}
-
-.pool-token-value {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #3BC117;
-    line-height: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 2px;
-    width: 100%;
-}
-
-.pool-token-label {
-    font-size: 0.7rem;
-    color: #b8b8b8;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    width: 100%;
+    margin: 0;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
 }
 
 
 
-/* Slides 2-4: Single token display */
-.pool-single-token {
-    text-align: center;
-    width: 100%;
-}
 
-.pool-token-value-large {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #3BC117;
-    margin-bottom: 6px;
-    line-height: 1;
-}
-
-.pool-token-label-large {
-    font-size: 0.9rem;
-    color: #b8b8b8;
-    font-weight: 500;
-}
-
-/* Slider arrows */
-.slider-arrow {
-    background: none;
-    border: none;
-    color: #3BC117;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 20px;
-    font-weight: bold;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    border-radius: 50%;
-}
-
-.slider-arrow:hover {
-    color: #2ea012;
-    background-color: rgba(59, 193, 23, 0.1);
-    transform: scale(1.1);
-}
-
-.slider-arrow:active {
-    transform: scale(0.95);
-}
 
 /* Cards */
 .card {
@@ -667,14 +490,37 @@ header {
     flex-shrink: 0;
     margin-bottom: 24px; /* Add spacing between wallet and token selection */
     padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    /* Ensure wallet section is always horizontal regardless of parent */
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    /* Force horizontal layout for all children */
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
 }
 
 .wallet-status-compact {
     display: flex;
+    flex-direction: row; /* Ensure horizontal layout */
     align-items: center;
     gap: 12px;
     justify-content: flex-end;
+    width: 100%;
+    flex-wrap: nowrap; /* Prevent wrapping */
+}
+
+/* When wallet is connected, use flexbox for horizontal layout */
+#wallet-connected .wallet-status-compact {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 16px !important;
+    /* Force horizontal layout */
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
 }
 
 .wallet-address-compact {
@@ -691,20 +537,62 @@ header {
 
 .wallet-address-full {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #ffffff;
     background: linear-gradient(135deg, #233044 0%, #1a2332 100%);
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid #2a3a4a;
     font-weight: 500;
     letter-spacing: 0.5px;
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
     text-align: center;
     min-width: 200px;
+    /* Flex item - takes available space on the left */
+    flex: 1;
+    /* Force horizontal positioning */
+    display: inline-block !important;
+    float: none !important;
+    clear: none !important;
+    position: static !important;
+    margin: 0 !important;
+}
+
+/* Disconnect button positioned on the right */
+#disconnectWalletBtn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    /* Force horizontal positioning */
+    display: inline-block !important;
+    float: none !important;
+    clear: none !important;
+    position: static !important;
+    margin: 0 !important;
+}
+
+/* User's tickets section */
+.my-tickets-section {
+    margin-top: 12px;
+    padding: 12px;
+    background: linear-gradient(135deg, #233044 0%, #1a2332 100%);
+    border-radius: 8px;
+    border: 1px solid #2a3a4a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.my-tickets-label {
+    font-size: 0.9rem;
+    color: #8892a6;
+    font-weight: 500;
+}
+
+.my-tickets-count {
+    font-size: 1.1rem;
+    color: #3BC117;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
 }
 
 .trading-form {
@@ -1277,12 +1165,7 @@ header {
     margin-top: 16px;
 }
 
-.stat-item {
-    background-color: #233044;
-    padding: 16px;
-    border-radius: 8px;
-    text-align: center;
-}
+
 
 .stat-value {
     font-size: 1.5rem;
@@ -1441,25 +1324,16 @@ header {
 
     .jackpot-header {
         font-size: 2rem;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         letter-spacing: 1px;
     }
 
-    .header-stats {
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin-top: 12px;
-        margin-bottom: 6px;
+    .jackpot-subheader {
+        font-size: 1rem;
+        margin-bottom: 20px;
     }
 
-    .header-stat {
-        padding: 16px;
-        min-height: 70px;
-    }
 
-    .header-stat-value {
-        font-size: 1.5rem;
-    }
 
     .card {
         padding: 16px;
@@ -1539,6 +1413,11 @@ header {
 
     .wallet-connect-section {
         order: 2;
+        /* Override parent column layout for wallet section */
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
     }
 
 
@@ -1551,12 +1430,31 @@ header {
     .wallet-status-compact {
         padding: 12px;
         min-height: 48px;
+        flex-direction: row !important; /* Override trading-header column direction */
+        flex-wrap: nowrap !important; /* Ensure no wrapping on mobile */
+    }
+
+    /* Force wallet connected to be horizontal on mobile */
+    #wallet-connected .wallet-status-compact {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        gap: 12px !important;
     }
 
     .wallet-address-full {
         font-size: 0.8rem;
         padding: 8px 12px;
-        min-height: 44px;
+        min-width: 160px; /* Smaller on mobile */
+        flex: 1; /* Take available space on the left */
+    }
+
+    /* Disconnect button positioned on the right */
+    #disconnectWalletBtn {
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     /* Enhanced touch targets for mobile */
@@ -1589,87 +1487,22 @@ header {
         padding: 12px 16px;
     }
 
-    /* Mobile-specific header adjustments */
-    .header-stats {
-        grid-template-columns: 1fr;
-    }
 
-    .header-stat:last-child {
-        order: -1;
-    }
-
-    .header-labels {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-
-    .header-label-container {
-        order: 1;
-    }
-
-    .header-label {
-        font-size: 0.8rem;
-    }
-
-    .header-stat {
-        padding: 12px;
-    }
-
-    .header-stat-value {
-        font-size: 1.4rem;
-    }
-
-    .pool-slides {
-        min-height: 70px;
-    }
-
-    .pool-slider-controls {
-        display: none;
-    }
-
-    .pool-token-grid {
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 6px;
-    }
-
-    .pool-token-value {
-        font-size: 1rem;
-    }
-
-    .pool-token-label {
-        font-size: 0.6rem;
-    }
-
-    .pool-token-value-large {
-        font-size: 1.8rem;
-    }
-
-    .pool-token-label-large {
-        font-size: 0.8rem;
-    }
-
-    .slider-arrow {
-        min-width: 44px;
-        min-height: 44px;
-        font-size: 1.5rem;
-    }
 }
 
 /* Extra small mobile devices */
 @media (max-width: 480px) {
     .jackpot-header {
         font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .jackpot-subheader {
+        font-size: 0.95rem;
         margin-bottom: 16px;
     }
 
-    .header-stat {
-        padding: 12px;
-        min-height: 60px;
-    }
 
-    .header-stat-value {
-        font-size: 1.3rem;
-    }
 
     .card {
         padding: 12px;
@@ -1704,26 +1537,14 @@ header {
 
 /* Landscape orientation adjustments */
 @media (max-width: 768px) and (orientation: landscape) {
-    .header-stats {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .header-labels {
-        grid-template-columns: 1fr 1fr;
-    }
-
     .jackpot-header {
         font-size: 1.5rem;
+        margin-bottom: 6px;
+    }
+
+    .jackpot-subheader {
+        font-size: 0.9rem;
         margin-bottom: 12px;
-    }
-
-    .header-stat {
-        min-height: 50px;
-        padding: 8px;
-    }
-
-    .header-stat-value {
-        font-size: 1.2rem;
     }
 }
 
@@ -1756,7 +1577,7 @@ header {
 
 /* High DPI displays */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .btn, .card, .header-stat {
+    .btn, .card {
         border-radius: 8px;
     }
 }
@@ -1769,9 +1590,7 @@ header {
         transition-duration: 0.01ms !important;
     }
 
-    .pool-slide {
-        transition: none;
-    }
+
 
     .notification {
         transition: none;
@@ -1893,7 +1712,7 @@ header {
 
 /* --- Historical Winners Section Styles --- */
 #historical-winners-section {
-  background: #23272f;
+  background: linear-gradient(135deg, #233044 0%, #1a2332 100%);
   border-radius: 10px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -1901,10 +1720,132 @@ header {
 }
 
 .historical-winners-container {
-  max-height: 400px;
-  overflow-y: auto;
+  display: flex;
+  gap: 16px;
   margin-top: 1rem;
-  padding-right: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.historical-winners-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.historical-winners-container::-webkit-scrollbar-track {
+  background: #181a20;
+  border-radius: 4px;
+}
+
+.historical-winners-container::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.historical-winners-container::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Desktop specific styles to ensure proper display */
+@media (min-width: 769px) {
+  .historical-winners-container {
+    max-width: none;
+    width: calc(100% + 3rem);
+    margin-left: -1.5rem;
+    padding-left: 1.5rem;
+    justify-content: flex-start;
+  }
+  
+  .winner-group {
+    min-width: 550px;
+  }
+}
+
+/* Mobile specific styles for lottery winners */
+@media (max-width: 768px) {
+  #historical-winners-section {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .historical-winners-container {
+    flex-direction: row;
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .winner-group {
+    min-width: 100vw;
+    width: 100vw;
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+  
+  .winner-group-header {
+    font-size: 11px;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  
+  .winner-compact {
+    padding: 8px;
+    min-height: 40px;
+  }
+  
+  .winner-compact .winner-address {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    line-height: 1.1;
+  }
+  
+  .winner-compact .winner-amounts {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  .winner-compact .winner-amount {
+    font-size: 0.65rem;
+  }
+  
+  .winner-compact .winner-token {
+    font-size: 0.55rem;
+  }
+  
+  .winner-compact .winner-amount-item {
+    gap: 2px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .winner-group {
+    min-width: 100vw;
+    width: 100vw;
+  }
+  
+  .winner-group-header {
+    font-size: 10px;
+  }
+  
+  .winner-compact .winner-address {
+    font-size: 0.7rem;
+  }
+  
+  .winner-compact .winner-amount {
+    font-size: 0.6rem;
+  }
+  
+  .winner-compact .winner-token {
+    font-size: 0.5rem;
+  }
 }
 
 .historical-winners-container::-webkit-scrollbar {
@@ -2011,18 +1952,145 @@ header {
 }
 
 .winner-group {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
+  padding: 1.5rem;
   border-radius: 8px;
   background: #233044;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  border: 1px solid #2a3a4a;
+  transition: all 0.3s ease;
+  flex: 1;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.winner-group:hover {
+  border-color: #3BC117;
+  box-shadow: 0 4px 12px rgba(59, 193, 23, 0.1);
+}
+
+.winner-group-header {
+  font-size: 13px;
+  color: #8892a6;
+  margin-bottom: 12px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 500;
+  border-bottom: 1px solid #2a3a4a;
+  padding-bottom: 8px;
+}
+
+.winners-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex: 1;
+}
+
+.winner-compact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 16px;
+  background: #1a2332;
+  border-radius: 6px;
+  border: 1px solid #2a3a4a;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+  min-height: 60px;
+}
+
+.winner-compact:hover {
+  background: #1f2937;
+  border-color: #3BC117;
+}
+
+.winner-compact .winner-position {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #22d3ee;
+  text-align: center;
+  min-width: 70px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  margin-right: 0;
+}
+
+.winner-compact .winner-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+}
+
+.winner-compact .winner-address {
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-family: monospace;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+
+.winner-compact .winner-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.winner-compact .winner-amount-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.winner-compact .winner-amount {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #3BC117;
+  line-height: 1;
+}
+
+.winner-compact .winner-token {
+  font-size: 0.7rem;
+  color: #8b9bb4;
+  line-height: 1;
 }
 
 .winner-tx-group {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #374151;
   text-align: center;
+  border-top: 1px solid #2a3a4a;
+  padding-top: 12px;
+}
+
+.tx-button {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #3BC117 0%, #2ea012 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 1px solid #3BC117;
+}
+
+.tx-button:hover {
+  background: linear-gradient(135deg, #2ea012 0%, #3BC117 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 193, 23, 0.3);
+  color: #ffffff;
+  text-decoration: none;
 }
 
 .winner-tx-group a {
@@ -2179,7 +2247,6 @@ header {
 .mobile-only-label { display: none; }
 
 @media (max-width: 900px) {
-  .header-labels { display: grid !important; }
   .mobile-labels-row {
     display: flex !important;
     flex-direction: column;
@@ -2230,10 +2297,7 @@ header {
     -webkit-tap-highlight-color: transparent;
 }
 
-.mobile-device .slider-arrow {
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-}
+
 
 /* PWA standalone mode styles */
 .pwa-standalone {
@@ -2246,13 +2310,7 @@ header {
 }
 
 /* Mobile viewport specific styles */
-.mobile-viewport .header-stats {
-    grid-template-columns: 1fr;
-}
 
-.mobile-viewport .header-labels {
-    grid-template-columns: 1fr;
-}
 
 /* Enhanced touch feedback */
 @media (hover: none) and (pointer: coarse) {
@@ -2266,14 +2324,11 @@ header {
         transition: transform 0.1s ease;
     }
     
-    .slider-arrow:active {
-        transform: scale(0.9);
-        transition: transform 0.1s ease;
-    }
+
 }
 
 /* Prevent text selection on interactive elements */
-.btn, .quantity-btn, .slider-arrow, .dropdown-trigger {
+.btn, .quantity-btn, .dropdown-trigger {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
