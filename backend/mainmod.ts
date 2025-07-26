@@ -329,8 +329,9 @@ async function processAutomatedRound() {
         // 4. 🏆 AUTO-TRIGGER PRIZE DISTRIBUTION
         console.log(`🚀 Auto-distributing ${poolADA.toFixed(2)} ADA pool to ${winners.length} winners...`);
         
+        let distributionTxHash = '';
         try {
-          await distributeAutomaticPrizes(winners, poolADA);
+          distributionTxHash = await distributeAutomaticPrizes(winners, poolADA);
           console.log(`✅ Automated prize distribution completed successfully!`);
           
         } catch (distributionError) {
@@ -346,7 +347,7 @@ async function processAutomatedRound() {
             address: winner.address,
             amount: winner.amount,
             percentage: winner.percentage,
-            transactionId: winner.transactionId || `tx_winner_${winner.position}_round_${currentRoundState.roundNumber}`,
+            transactionId: distributionTxHash || `tx_winner_${winner.position}_round_${currentRoundState.roundNumber}`,
             claimedAt: new Date().toISOString()
           })),
           totalPool: poolADA,
@@ -2195,7 +2196,7 @@ router.post("/api/lottery/admin/claim-prizes", async (ctx) => {
 async function distributeAutomaticPrizes(
   winners: Array<{address: string; amount: number; percentage: number; position: number}>,
   totalPoolADA: number
-): Promise<void> {
+): Promise<string> {
   if (!winners || winners.length === 0) {
     throw new Error("No winners to distribute prizes to");
   }
@@ -2312,6 +2313,8 @@ async function distributeAutomaticPrizes(
       console.warn(`⚠️ Transaction submitted but confirmation failed: ${confirmError}`);
       console.log(`🔍 Check transaction status manually: ${txHash}`);
     }
+    
+    return txHash; // Return the transaction hash
     
   } catch (error) {
     console.error("❌ Error in automated prize distribution:", error);
