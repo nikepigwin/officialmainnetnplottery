@@ -10,6 +10,26 @@ function normalizeAdaPolicyId(pid: string): string {
 // Debug log for Oak and Deno version
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
+// Global storage for real historical winners
+let historicalWinnersStorage: Array<{
+  roundNumber: number;
+  winners: Array<{
+    position: number;
+    address: string;
+    amount: number;
+    percentage: number;
+    transactionId: string;
+    claimedAt: string;
+  }>;
+  totalPool: number;
+  drawDate: string;
+  totalParticipants: number;
+  totalTickets: number;
+}> = [];
+
+// Flag to prevent multiple processing of the same round
+let isProcessingRound = false;
+
 // Load the actual validator from contract/plutus.json
 const plutusJson = JSON.parse(Deno.readTextFileSync("./contract/plutus.json"));
 const SCRIPT_VALIDATOR = plutusJson.validators[0].compiledCode;
@@ -255,12 +275,19 @@ function selectRoundWinners(participants: typeof currentRoundState.participants)
 // Automated round processing
 async function processAutomatedRound() {
   try {
+    // Prevent multiple processing of the same round
+    if (isProcessingRound) {
+      console.log(`⏸️ Round processing already in progress, skipping...`);
+      return;
+    }
+    
     const now = Date.now();
     const roundAge = now - currentRoundState.roundStartTime;
     
     console.log(`⏰ Round age: ${Math.floor(roundAge / 1000)}s / ${Math.floor(currentRoundState.roundDuration / 1000)}s`);
     
     if (roundAge >= currentRoundState.roundDuration) {
+      isProcessingRound = true;
       console.log(`🔔 ROUND ${currentRoundState.roundNumber} TIME UP! Processing...`);
       
       // 1. Close sales
@@ -366,6 +393,9 @@ async function processAutomatedRound() {
     }
   } catch (error) {
     console.error("❌ Error in automated round processing:", error);
+  } finally {
+    // Always reset the processing flag
+    isProcessingRound = false;
   }
 }
 
@@ -2342,20 +2372,3 @@ router.post("/api/lottery/admin/emergency-distribute", async (ctx) => {
     };
   }
 });
-
-// Global storage for real historical winners
-let historicalWinnersStorage: Array<{
-  roundNumber: number;
-  winners: Array<{
-    position: number;
-    address: string;
-    amount: number;
-    percentage: number;
-    transactionId: string;
-    claimedAt: string;
-  }>;
-  totalPool: number;
-  drawDate: string;
-  totalParticipants: number;
-  totalTickets: number;
-}> = [];
