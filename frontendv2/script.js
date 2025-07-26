@@ -305,7 +305,7 @@ let walletApi = null;
 // DOM Elements - will be initialized when DOM is ready
 let poolAmount, lotteryForm, notification;
 let connectWalletBtn, disconnectWalletBtn, walletAddressSpan, walletBalanceSpan;
-let totalPool, timeUntilDraw;
+let totalPool;
 let ticketCountInput, totalCostSpan;
 let spinner;
 let walletDisconnected, walletConnected;
@@ -558,8 +558,9 @@ function formatAddress(address) {
         console.log('🔍 formatAddress received invalid address:', address);
         return 'Unknown Address';
     }
-    if (address.length > 20) {
-        return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+    if (address.length > 8) {
+        // Only apply if both sides are at least 4 chars
+        return `${address.substring(0, 4)}....${address.substring(address.length - 4)}`;
     }
     return address;
 }
@@ -779,18 +780,10 @@ async function fetchAndDisplayUserTickets() {
     if (response.success) {
       console.log('User tickets data:', response);
       
-      const myTicketsDisplay = document.getElementById('my-tickets-display');
-      const myTicketsSection = document.getElementById('my-tickets-section');
+      const userTicketsDisplay = document.getElementById('user-tickets-display');
       
-      if (myTicketsDisplay && myTicketsSection) {
-        myTicketsDisplay.textContent = response.tickets;
-        
-        // Show section if user has tickets, hide if 0
-        if (response.tickets > 0) {
-          myTicketsSection.style.display = 'flex';
-        } else {
-          myTicketsSection.style.display = 'none';
-        }
+      if (userTicketsDisplay) {
+        userTicketsDisplay.textContent = response.tickets;
       }
     }
   } catch (error) {
@@ -1066,6 +1059,15 @@ async function connectWallet() {
     if (walletDisconnected) walletDisconnected.style.display = 'none';
     if (walletConnected) walletConnected.style.display = 'block';
     
+    // Show ticket section when wallet connects
+    const myTicketsSection = document.getElementById('my-tickets-section');
+    if (myTicketsSection) {
+      myTicketsSection.style.display = 'flex';
+    }
+    
+    // Update sales status display
+    updateSalesStatus();
+    
     showNotification('Wallet Connected', 'success');
     
     // Refresh data
@@ -1130,10 +1132,10 @@ function disconnectWallet() {
   
   showNotification('Wallet disconnected', 'info');
 
-  // Hide user tickets section
-  const myTicketsSection = document.getElementById('my-tickets-section');
-  if (myTicketsSection) {
-    myTicketsSection.style.display = 'none';
+  // Reset user tickets display
+  const userTicketsDisplay = document.getElementById('user-tickets-display');
+  if (userTicketsDisplay) {
+    userTicketsDisplay.textContent = '0';
   }
 
   // Reset buyTicketsBtn state
@@ -1495,6 +1497,52 @@ async function buyTicketsForLottery(ticketCount) {
   }
 }
 
+// Update sales status display
+function updateSalesStatus() {
+  const salesStatusDisplay = document.getElementById('sales-status-display');
+  if (salesStatusDisplay) {
+    // This will be updated based on backend data
+    salesStatusDisplay.textContent = 'Open';
+  }
+}
+
+// Flash Buy functionality
+function setupFlashBuyButtons() {
+  const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+  
+  flashBuyButtons.forEach(button => {
+    button.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      if (!connectedWallet || !window.currentUserAddress) {
+        showNotification('Please connect your wallet first', 'error');
+        return;
+      }
+      
+      const ticketCount = parseInt(button.getAttribute('data-tickets'));
+      console.log(`⚡ Flash buying ${ticketCount} tickets`);
+      
+      try {
+        // Update the ticket input
+        const ticketInput = document.getElementById('ticket-amount');
+        if (ticketInput) {
+          ticketInput.value = ticketCount;
+          // Trigger input event to update total cost
+          ticketInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        
+        // Call the existing buy tickets function
+        await buyTicketsForLottery(ticketCount);
+        
+        showNotification(`⚡ Flash bought ${ticketCount} tickets!`, 'success');
+      } catch (error) {
+        console.error('Flash buy error:', error);
+        showNotification(`Flash buy failed: ${error.message}`, 'error');
+      }
+    });
+  });
+}
+
 // Add helper to get current pool amount in ADA
 async function getCurrentPoolAmount() {
   try {
@@ -1514,7 +1562,7 @@ function initializeDOMElements() {
   console.log('🔍 Initializing DOM elements...');
   
   // Main UI elements
-  timeUntilDraw = document.getElementById('timeUntilDraw');
+      // timeUntilDraw element removed from frontendv2 - using countdown-timer-display instead
   
   // Form elements - use the correct IDs from the HTML
   ticketCountInput = document.getElementById('ticket-amount'); // Changed from 'ticketCount'
@@ -1967,6 +2015,9 @@ function updateCustomDropdown() {
   console.log('✅ Dropdown updated with', acceptedTokens.length, 'tokens');
   // Add click handlers to the new token options
   addTokenOptionHandlers();
+  
+  // Setup flash buy buttons
+  setupFlashBuyButtons();
 }
 
 // Custom Dropdown Integration
@@ -2333,7 +2384,7 @@ function hideWinnerBanner() {
 
 // 🕒 COUNTDOWN TIMER FUNCTIONS
 function updateCountdown() {
-  if (!roundStartTime || !timeUntilDraw) return;
+  if (!roundStartTime) return;
   
   const now = Date.now();
   const elapsed = now - roundStartTime;
@@ -2341,9 +2392,6 @@ function updateCountdown() {
   
   const displayText = remaining <= 0 ? "Drawing..." : 
     `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
-  
-  // Update original timer
-  timeUntilDraw.textContent = displayText;
   
   // 🎯 UPDATE LEFT COLUMN: Connect countdown timer to left column element
   const leftCountdownTimer = document.getElementById('countdown-timer-display');

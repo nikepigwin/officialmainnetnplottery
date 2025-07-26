@@ -311,7 +311,32 @@ async function processAutomatedRound() {
           // Continue with round reset even if distribution fails
         }
         
-        // 5. WebSocket winner announcement removed
+        // 6. 🏆 SAVE WINNERS TO HISTORICAL STORAGE
+        const winnerData = {
+          roundNumber: currentRoundState.roundNumber,
+          winners: winners.map(winner => ({
+            position: winner.position,
+            address: winner.address,
+            amount: winner.amount,
+            percentage: winner.percentage,
+            transactionId: winner.transactionId || `tx_winner_${winner.position}_round_${currentRoundState.roundNumber}`,
+            claimedAt: new Date().toISOString()
+          })),
+          totalPool: poolADA,
+          drawDate: new Date().toISOString(),
+          totalParticipants: participantCount,
+          totalTickets: currentRoundState.totalTickets
+        };
+        
+        // Add to historical storage (keep only last 7 rounds)
+        historicalWinnersStorage.unshift(winnerData);
+        if (historicalWinnersStorage.length > 7) {
+          historicalWinnersStorage = historicalWinnersStorage.slice(0, 7);
+        }
+        
+        console.log(`📝 Saved ${winners.length} winners to historical storage for round ${currentRoundState.roundNumber}`);
+        
+        // 7. WebSocket winner announcement removed
         // broadcastNotification({...}) - WebSocket functionality disabled
       } else {
         console.log("⚠️ No participants - no winners to announce");
@@ -1476,77 +1501,10 @@ router.get("/api/lottery/winners", async (ctx) => {
   try {
     // Get current lottery state for round info
     const lotteryState = await getCurrentLotteryState();
-    const currentRound = 1; // This would come from smart contract
+    const currentRound = currentRoundState?.roundNumber || 1;
 
-    // Mock historical winners (replace with real database data)
-    const historicalWinners = [
-      {
-        roundNumber: currentRound - 1,
-        winners: [
-          {
-            position: 1,
-            address: "addr_test1winner1stplace...",
-            amount: 500, // ADA
-            percentage: 50,
-            transactionId: "tx_hash_winner_1st_round_" + (currentRound - 1),
-            claimedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days ago
-          },
-          {
-            position: 2,
-            address: "addr_test1winner2ndplace...",
-            amount: 300, // ADA
-            percentage: 30,
-            transactionId: "tx_hash_winner_2nd_round_" + (currentRound - 1),
-            claimedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            position: 3,
-            address: "addr_test1winner3rdplace...",
-            amount: 200, // ADA
-            percentage: 20,
-            transactionId: "tx_hash_winner_3rd_round_" + (currentRound - 1),
-            claimedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ],
-        totalPool: 1000, // ADA
-        drawDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        totalParticipants: 50,
-        totalTickets: 200
-      },
-      {
-        roundNumber: currentRound - 2,
-        winners: [
-          {
-            position: 1,
-            address: "addr_test1winner1stplace_prev...",
-            amount: 400, // ADA
-            percentage: 50,
-            transactionId: "tx_hash_winner_1st_round_" + (currentRound - 2),
-            claimedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
-          },
-          {
-            position: 2,
-            address: "addr_test1winner2ndplace_prev...",
-            amount: 240, // ADA
-            percentage: 30,
-            transactionId: "tx_hash_winner_2nd_round_" + (currentRound - 2),
-            claimedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            position: 3,
-            address: "addr_test1winner3rdplace_prev...",
-            amount: 160, // ADA
-            percentage: 20,
-            transactionId: "tx_hash_winner_3rd_round_" + (currentRound - 2),
-            claimedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ],
-        totalPool: 800, // ADA
-        drawDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        totalParticipants: 40,
-        totalTickets: 160
-      }
-    ];
+    // Return real historical winners from storage
+    const historicalWinners = historicalWinnersStorage;
 
     ctx.response.body = {
       success: true,
@@ -2384,3 +2342,20 @@ router.post("/api/lottery/admin/emergency-distribute", async (ctx) => {
     };
   }
 });
+
+// Global storage for real historical winners
+let historicalWinnersStorage: Array<{
+  roundNumber: number;
+  winners: Array<{
+    position: number;
+    address: string;
+    amount: number;
+    percentage: number;
+    transactionId: string;
+    claimedAt: string;
+  }>;
+  totalPool: number;
+  drawDate: string;
+  totalParticipants: number;
+  totalTickets: number;
+}> = [];

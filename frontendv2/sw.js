@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v1.14.0-user-tickets-display';
+const CACHE_NAME = 'nikepig-lottery-v1.44.0-real-winners';
 const urlsToCache = [
   '/',
   '/index.html',

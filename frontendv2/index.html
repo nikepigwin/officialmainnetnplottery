@@ -13,13 +13,15 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css?v=1.11.0">
+    <link rel="stylesheet" href="main.css?v=1.44.0">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1 class="jackpot-header">Cardano Jackpot</h1>
-            <h2 class="jackpot-subheader">3 Winners hit the Jackpot daily</h2>
+        <header class="side-by-side-header">
+            <div class="header-content">
+                <h1 class="jackpot-header">Cardano Jackpot</h1>
+                <h2 class="jackpot-subheader">3 Winners hit the Jackpot daily</h2>
+            </div>
         </header>
 
         <main>
@@ -94,6 +96,18 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Status Row -->
+                            <div class="status-row">
+                                <div class="status-item">
+                                    <span class="status-label">Lottery Status:</span>
+                                    <span class="status-value" id="sales-status-display">Open</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">User Tickets:</span>
+                                    <span class="status-value" id="user-tickets-display">0</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -108,11 +122,6 @@
                                 <div id="wallet-connected" class="wallet-status-compact" style="display: none;">
                                     <div class="wallet-address-full" id="wallet-address">e0dd...614f</div>
                                     <button id="disconnectWalletBtn" class="btn btn-secondary">Disconnect</button>
-                                </div>
-                                <!-- User's tickets display -->
-                                <div id="my-tickets-section" class="my-tickets-section" style="display: none;">
-                                    <div class="my-tickets-label">My Tickets:</div>
-                                    <div class="my-tickets-count" id="my-tickets-display">0</div>
                                 </div>
                             </div>
                         </div>
@@ -164,7 +173,15 @@
                             
                             <button id="buy-tickets" class="btn btn-success trading-btn">Buy Tickets</button>
                             
-                            <div class="ticket-price-display">Price per ticket: 5.00 ADA</div>
+                            <!-- Flash Buy Buttons -->
+                            <div class="flash-buy-section">
+                                <div class="flash-buy-label">Flash Buy ⚡</div>
+                                <div class="flash-buy-buttons">
+                                    <button class="flash-buy-btn" data-tickets="10">10 Tickets</button>
+                                    <button class="flash-buy-btn" data-tickets="20">20 Tickets</button>
+                                    <button class="flash-buy-btn" data-tickets="30">30 Tickets</button>
+                                </div>
+                            </div>
                         </div>
                         
                         <div id="transactionStatus" class="transaction-status"></div>
@@ -211,23 +228,23 @@
             <div class="footer-content">
                 <div id="more-info-content" class="footer-tab-content">
                     <h3>About Cardano Lottery</h3>
-                    <p>The Cardano Lottery is a fully decentralized lottery platform built on the Cardano blockchain. Leveraging an off-chain mechanism, it automates reward distribution and employs a provably fair random selection process to determine winners based on ticket odds.</p>
+                    <p>The NikePig Lottery is a decentralized platform on the Cardano blockchain, using an off-chain mechanism for automated reward distribution and a provably fair random selection process to determine winners based on ticket odds.</p>
                     <div class="info-grid">
                         <div class="info-item">
                             <h4>How It Works</h4>
-                            <p>Purchase tickets using ADA and await the draw's countdown completion. If your wallet is selected as a winner, prizes are automatically deposited into your wallet. No manual claiming required. Enjoy a seamless and transparent lottery experience powered by the Cardano blockchain.</p>
+                            <p>Buy tickets with ADA or native tokens for 5 ADA each. After the countdown, winners are randomly selected, and prizes are automatically sent to your wallet, no manual claiming needed.</p>
                         </div>
                         <div class="info-item">
                             <h4>Prize Distribution</h4>
-                            <p>Prizes are automatically distributed to winners' Cardano wallets immediately after each lottery round. The total prize pool is divided among three winners: 50% for first place, 30% for second place, and 20% for third place. To sustain the lottery dApp, a 2.5% commission is applied from the total pool, with an additional 2.5% allocated to a weekly jackpot, enhancing future rewards.</p>
+                            <p>The total prize pool is divided among three winners: 50% for first place, 30% for second place, and 20% for third place. To sustain the lottery dApp, a 5% commission is applied from the total pool.</p>
                         </div>
                         <div class="info-item">
                             <h4>Transparency</h4>
-                            <p>All transactions and lottery results are securely recorded on the Cardano blockchain, ensuring complete transparency and verifiability. A comprehensive Lottery Winners history, including transaction IDs, is publicly displayed on our website. Our audited smart contract is openly accessible for review. Visit the Contact tab to access the contract files or reach out with any questions.</p>
+                            <p>Recent winners, transactions, and lottery results are securely recorded on the Cardano blockchain for full transparency and verifiability. The smart contract is audited and approved by IOHK.</p>
                         </div>
                         <div class="info-item">
-                            <h4>Smart Contract Pool Tracking</h4>
-                            <p>The lottery uses a hybrid approach for pool balance tracking: <strong>ADA amounts are tracked in the smart contract datum</strong> (🔗 indicator), while <strong>native tokens (SNEK, NIKEPIG) are stored in the pool wallet UTxOs</strong> (💼 indicator). This design ensures the smart contract maintains a single source of truth for ADA while allowing flexible multi-token support through the pool wallet architecture.</p>
+                            <h4>Infrastructure</h4>
+                            <p>The lottery uses a smart contract and off-chain processes to select winners, verify tickets, split prizes, and distribute rewards, ensuring a seamless, transparent experience on the Cardano blockchain.</p>
                         </div>
                     </div>
                 </div>
@@ -274,7 +291,7 @@
       console.log('✅ Lucid loaded successfully from web module, Data attached');
       // Dynamically load script.js only after Lucid is ready
       const script = document.createElement('script');
-      script.src = 'script.js?v=1.5.0';
+      script.src = 'script.js?v=1.44.0';
       document.body.appendChild(script);
     </script>
     
