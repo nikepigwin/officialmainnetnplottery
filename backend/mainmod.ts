@@ -193,6 +193,8 @@ interface BackendRoundState {
   roundDuration: number; // milliseconds (3 minutes = 180000ms)
   minimumParticipants: number; // minimum participants needed to process round
   rolledOverRounds: number; // count of how many rounds have been rolled over
+  processingStatus: 'idle' | 'processing' | 'rollover' | 'jackpot'; // processing status for frontend
+  processingStartTime?: number; // when processing started
 }
 
 let currentRoundState: BackendRoundState = {
@@ -204,7 +206,8 @@ let currentRoundState: BackendRoundState = {
   salesOpen: true,
   roundDuration: 3 * 60 * 1000, // 3 minutes for testing
   minimumParticipants: 4, // need at least 4 participants to process round
-  rolledOverRounds: 0 // how many times this pool has rolled over
+  rolledOverRounds: 0, // how many times this pool has rolled over
+  processingStatus: 'idle' // initial processing status
 };
 
 // 🎰 AUTOMATED ROUND LIFECYCLE (3-minute cycles for testing)
@@ -290,9 +293,16 @@ async function processAutomatedRound() {
       isProcessingRound = true;
       console.log(`🔔 ROUND ${currentRoundState.roundNumber} TIME UP! Processing...`);
       
-      // 1. Close sales
+      // 1. Start processing period (45 seconds)
+      currentRoundState.processingStatus = 'processing';
+      currentRoundState.processingStartTime = Date.now();
       currentRoundState.salesOpen = false;
-      console.log("🚫 Sales closed");
+      console.log("🚫 Sales closed - Processing period started");
+      
+      // 2. Wait 45 seconds for processing
+      console.log("⏳ Waiting 45 seconds for processing...");
+      await new Promise(resolve => setTimeout(resolve, 45 * 1000));
+      console.log("✅ Processing period completed");
       
       // 2. 🔄 CHECK ROLLOVER CONDITION: Need minimum participants
       const participantCount = currentRoundState.participants.length;
@@ -300,6 +310,7 @@ async function processAutomatedRound() {
       
       if (participantCount < currentRoundState.minimumParticipants) {
         // 🔄 ROLL OVER TO NEXT ROUND
+        currentRoundState.processingStatus = 'rollover';
         currentRoundState.rolledOverRounds++;
         console.log(`🔄 ROLLOVER: Only ${participantCount} participants (need ${currentRoundState.minimumParticipants})`);
         console.log(`💰 Pool of ${poolADA.toFixed(2)} ADA rolling over to next round (rollover #${currentRoundState.rolledOverRounds})`);
@@ -308,6 +319,7 @@ async function processAutomatedRound() {
         currentRoundState.roundNumber++;
         currentRoundState.roundStartTime = Date.now();
         currentRoundState.salesOpen = true;
+        currentRoundState.processingStatus = 'idle';
         
         // WebSocket notifications removed
         // broadcastNotification(...) - WebSocket functionality disabled
@@ -317,7 +329,8 @@ async function processAutomatedRound() {
       }
       
       // 3. ✅ ENOUGH PARTICIPANTS: Select winners and process round
-      console.log(`✅ PROCESSING ROUND: ${participantCount} participants (minimum met!)`);
+      currentRoundState.processingStatus = 'jackpot';
+      console.log(`✅ PROCESSING ROUND: ${participantCount} participants (minimum met!) - JACKPOT!`);
       const winners = selectRoundWinners(currentRoundState.participants);
       
       if (winners.length > 0) {
@@ -384,7 +397,8 @@ async function processAutomatedRound() {
         salesOpen: true,
         roundDuration: 3 * 60 * 1000, // 3 minutes for testing
         minimumParticipants: 4, // need at least 4 participants to process round
-        rolledOverRounds: 0 // reset rollover count for fresh round
+        rolledOverRounds: 0, // reset rollover count for fresh round
+        processingStatus: 'idle' // reset processing status
       };
       
       console.log(`🔄 FRESH NEW ROUND ${currentRoundState.roundNumber} STARTED! Previous round processed after ${previousRollovers} rollovers.`);
@@ -598,6 +612,8 @@ router.get("/api/lottery/stats", async (ctx) => {
             `Need ${currentRoundState.minimumParticipants - currentRoundState.participants.length} more participants` : 
             "Ready for draw!",
           roundStartTime: currentRoundState.roundStartTime, // For countdown timer
+          processingStatus: currentRoundState.processingStatus, // Processing status for frontend
+          processingStartTime: currentRoundState.processingStartTime, // When processing started
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
         }
       };
@@ -631,6 +647,8 @@ router.get("/api/lottery/stats", async (ctx) => {
             `Need ${currentRoundState.minimumParticipants - currentRoundState.participants.length} more participants` : 
             "Ready for draw!",
           roundStartTime: currentRoundState.roundStartTime, // For countdown timer
+          processingStatus: currentRoundState.processingStatus, // Processing status for frontend
+          processingStartTime: currentRoundState.processingStartTime, // When processing started
           acceptedTokens: ["lovelace", "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b", "c881c20e49dbaca3ff6cef365969354150983230c39520b917f5cf7c4e696b65"]
       }
     };

@@ -733,6 +733,49 @@ async function refreshStats() {
         if (leftPoolNIKEPIG) leftPoolNIKEPIG.textContent = nikepigAmount.toFixed(0); // NIKEPIG as integer
         
         console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount });
+        
+        // 🎯 UPDATE PROCESSING STATUS AND SALES STATUS
+        const salesStatusDisplay = document.getElementById('sales-status-display');
+        const countdownDisplay = document.getElementById('countdown-timer-display');
+        const buyTicketsBtn = document.getElementById('buy-tickets-btn');
+        const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+        
+        if (stats.processingStatus) {
+          console.log('🔄 Processing status:', stats.processingStatus);
+          
+          // Update sales status based on processing status
+          if (stats.processingStatus === 'processing') {
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing...';
+            if (countdownDisplay) countdownDisplay.textContent = 'Loading...';
+            // Disable ticket buying during processing
+            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
+            flashBuyButtons.forEach(btn => btn.disabled = true);
+          } else if (stats.processingStatus === 'rollover') {
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Rollover';
+            if (countdownDisplay) countdownDisplay.textContent = 'Rollover';
+            // Re-enable ticket buying after rollover
+            if (buyTicketsBtn) buyTicketsBtn.disabled = false;
+            flashBuyButtons.forEach(btn => btn.disabled = false);
+          } else if (stats.processingStatus === 'jackpot') {
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Jackpot!';
+            if (countdownDisplay) countdownDisplay.textContent = 'Jackpot!';
+            // Disable ticket buying during jackpot processing
+            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
+            flashBuyButtons.forEach(btn => btn.disabled = true);
+          } else if (stats.processingStatus === 'idle') {
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
+            if (countdownDisplay) {
+              // Restore normal countdown if we have round start time
+              if (stats.roundStartTime) {
+                startCountdownTimer(stats.roundStartTime);
+              }
+            }
+            // Re-enable ticket buying when idle
+            if (buyTicketsBtn) buyTicketsBtn.disabled = false;
+            flashBuyButtons.forEach(btn => btn.disabled = false);
+          }
+        }
+        
         console.log('✅ Stats updated successfully');
         if (arguments.length > 0) {
             showNotification('Stats refreshed successfully', 'success');

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v1.46.0-real-tx-hash';
+const CACHE_NAME = 'nikepig-lottery-v1.47.0-processing-status';
 const urlsToCache = [
   '/',
   '/index.html',
