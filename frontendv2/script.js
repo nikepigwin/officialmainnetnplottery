@@ -744,22 +744,16 @@ async function refreshStats() {
           console.log('🔄 Processing status:', stats.processingStatus);
           
           // Update sales status based on processing status
-          if (stats.processingStatus === 'processing') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing...';
-            if (countdownDisplay) countdownDisplay.textContent = 'Loading...';
-            // Disable ticket buying during processing
-            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
-            flashBuyButtons.forEach(btn => btn.disabled = true);
-          } else if (stats.processingStatus === 'rollover') {
+          if (stats.processingStatus === 'rollover') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Rollover';
             if (countdownDisplay) countdownDisplay.textContent = 'Rollover';
-            // Re-enable ticket buying after rollover
-            if (buyTicketsBtn) buyTicketsBtn.disabled = false;
-            flashBuyButtons.forEach(btn => btn.disabled = false);
+            // Keep ticket buying disabled during rollover processing
+            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
+            flashBuyButtons.forEach(btn => btn.disabled = true);
           } else if (stats.processingStatus === 'jackpot') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Jackpot!';
             if (countdownDisplay) countdownDisplay.textContent = 'Jackpot!';
-            // Disable ticket buying during jackpot processing
+            // Keep ticket buying disabled during jackpot processing
             if (buyTicketsBtn) buyTicketsBtn.disabled = true;
             flashBuyButtons.forEach(btn => btn.disabled = true);
           } else if (stats.processingStatus === 'idle') {

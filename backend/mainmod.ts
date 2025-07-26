@@ -293,29 +293,28 @@ async function processAutomatedRound() {
       isProcessingRound = true;
       console.log(`🔔 ROUND ${currentRoundState.roundNumber} TIME UP! Processing...`);
       
-      // 1. Start processing period (45 seconds)
-      currentRoundState.processingStatus = 'processing';
-      currentRoundState.processingStartTime = Date.now();
+      // 1. Start processing period and close sales
       currentRoundState.salesOpen = false;
       console.log("🚫 Sales closed - Processing period started");
       
-      // 2. Wait 45 seconds for processing
-      console.log("⏳ Waiting 45 seconds for processing...");
-      await new Promise(resolve => setTimeout(resolve, 45 * 1000));
-      console.log("✅ Processing period completed");
-      
-      // 2. 🔄 CHECK ROLLOVER CONDITION: Need minimum participants
+      // 2. 🔄 QUICKLY CHECK ROLLOVER CONDITION: Need minimum participants
       const participantCount = currentRoundState.participants.length;
       const poolADA = currentRoundState.totalPoolAmount / 1_000_000;
       
       if (participantCount < currentRoundState.minimumParticipants) {
         // 🔄 ROLL OVER TO NEXT ROUND
         currentRoundState.processingStatus = 'rollover';
-        currentRoundState.rolledOverRounds++;
+        currentRoundState.processingStartTime = Date.now();
         console.log(`🔄 ROLLOVER: Only ${participantCount} participants (need ${currentRoundState.minimumParticipants})`);
         console.log(`💰 Pool of ${poolADA.toFixed(2)} ADA rolling over to next round (rollover #${currentRoundState.rolledOverRounds})`);
         
+        // Wait 45 seconds for rollover processing
+        console.log("⏳ Waiting 45 seconds for rollover processing...");
+        await new Promise(resolve => setTimeout(resolve, 45 * 1000));
+        console.log("✅ Rollover processing completed");
+        
         // Keep participants and pool, but advance round number and reset timer
+        currentRoundState.rolledOverRounds++;
         currentRoundState.roundNumber++;
         currentRoundState.roundStartTime = Date.now();
         currentRoundState.salesOpen = true;
@@ -330,7 +329,14 @@ async function processAutomatedRound() {
       
       // 3. ✅ ENOUGH PARTICIPANTS: Select winners and process round
       currentRoundState.processingStatus = 'jackpot';
+      currentRoundState.processingStartTime = Date.now();
       console.log(`✅ PROCESSING ROUND: ${participantCount} participants (minimum met!) - JACKPOT!`);
+      
+      // Wait 45 seconds for jackpot processing
+      console.log("⏳ Waiting 45 seconds for jackpot processing...");
+      await new Promise(resolve => setTimeout(resolve, 45 * 1000));
+      console.log("✅ Jackpot processing completed");
+      
       const winners = selectRoundWinners(currentRoundState.participants);
       
       if (winners.length > 0) {
