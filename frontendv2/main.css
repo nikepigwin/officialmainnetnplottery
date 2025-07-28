@@ -1247,7 +1247,7 @@ body {
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(59, 193, 23, 0.3), transparent);
     animation: jackpot-flash-sweep 3s infinite;
-    z-index: 10;
+    z-index: 1;
 }
 
 .timer-card.jackpot-celebration::after {
@@ -1259,7 +1259,13 @@ body {
     bottom: 2px;
     background: #233044;
     border-radius: 10px;
-    z-index: 9;
+    z-index: 2;
+}
+
+/* Ensure timer content stays visible above the animation */
+.timer-card.jackpot-celebration .timer-content {
+    position: relative;
+    z-index: 3;
 }
 
 @keyframes jackpot-flash-sweep {

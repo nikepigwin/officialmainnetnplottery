@@ -222,7 +222,11 @@ interface WinnerResult {
 
 let automatedRoundTimer: number | null = null;
 
-// Winner selection algorithm (fair weighted random)
+// Commission wallet addresses
+const TEAM_WALLET_ADDRESS = "addr_test1qr2htllkhpk5nr6wd5zap283u6r2mna5ckvhd63v40chdenmdv65ksa3sqdkq3xrkax99tzkthycgat3faxm32234pxscgct5q";
+const BURN_WALLET_ADDRESS = "addr_test1qpydw0f2p66mzgc48mdkq4g7p88shc3ev9zrgp39jcjlyve3cxvkh3wy8wp8xfs6gjayl3p83kqc2dajrx5t5fadqyuq7k09tc";
+
+// Winner selection algorithm (fair weighted random) - now with commission system
 function selectRoundWinners(participants: typeof currentRoundState.participants): WinnerResult[] {
   if (participants.length === 0) {
     console.log("⚠️ No participants to select winners from");
@@ -243,7 +247,17 @@ function selectRoundWinners(participants: typeof currentRoundState.participants)
   
   const winners: WinnerResult[] = [];
   const usedAddresses = new Set<string>();
-  const prizePercentages = [50, 30, 20]; // 1st: 50%, 2nd: 30%, 3rd: 20%
+  
+  // Commission system: 5% total (2.5% team + 2.5% burn), 95% to winners
+  // Winner percentages of the 95%: 1st: 50%, 2nd: 30%, 3rd: 20%
+  // This means: 1st gets 47.5% of total, 2nd gets 28.5% of total, 3rd gets 19% of total
+  const winnerPercentagesOf95 = [50, 30, 20]; // Percentages of the 95% pool
+  const totalPoolADA = currentRoundState.totalPoolAmount / 1_000_000;
+  const winnerPoolADA = totalPoolADA * 0.95; // 95% for winners
+  
+  console.log(`💰 Total pool: ${totalPoolADA.toFixed(2)} ADA`);
+  console.log(`🏆 Winner pool (95%): ${winnerPoolADA.toFixed(2)} ADA`);
+  console.log(`💸 Commission (5%): ${(totalPoolADA * 0.05).toFixed(2)} ADA (2.5% team + 2.5% burn)`);
   
   for (let position = 1; position <= 3 && position <= participants.length; position++) {
     let attempts = 0;
@@ -253,20 +267,21 @@ function selectRoundWinners(participants: typeof currentRoundState.participants)
       
       if (!usedAddresses.has(selectedAddress)) {
         const participant = participants.find(p => p.address === selectedAddress)!;
-        const percentage = prizePercentages[position - 1];
-        const amount = (currentRoundState.totalPoolAmount / 1_000_000) * (percentage / 100);
+        const percentageOf95 = winnerPercentagesOf95[position - 1];
+        const percentageOfTotal = (percentageOf95 * 0.95); // Convert to percentage of total pool
+        const amount = winnerPoolADA * (percentageOf95 / 100);
         
         winners.push({
           position: position,
           address: selectedAddress,
           amount: amount,
-          percentage: percentage,
+          percentage: percentageOfTotal, // Store as percentage of total pool
           transactionId: `auto_winner_${currentRoundState.roundNumber}_${position}_${Date.now()}`,
           ticketCount: participant.ticketCount
         });
         
         usedAddresses.add(selectedAddress);
-        console.log(`🏆 Winner ${position}: ${selectedAddress} (${amount.toFixed(2)} ADA, ${participant.ticketCount} tickets)`);
+        console.log(`🏆 Winner ${position}: ${selectedAddress} (${amount.toFixed(2)} ADA, ${percentageOfTotal.toFixed(1)}% of total pool, ${participant.ticketCount} tickets)`);
       }
       attempts++;
     }
@@ -2332,15 +2347,34 @@ async function distributeAutomaticPrizes(
       throw new Error(`Insufficient funds: need ${totalPrizeNeeded.toFixed(2)} ADA, have ${totalAvailableADA.toFixed(2)} ADA`);
     }
     
-    // Build transaction to pay all winners
+    // Calculate commission amounts
+    const teamCommissionADA = totalPoolADA * 0.025; // 2.5%
+    const burnCommissionADA = totalPoolADA * 0.025; // 2.5%
+    
+    console.log(`💸 Commission breakdown:`);
+    console.log(`   Team wallet (2.5%): ${teamCommissionADA.toFixed(2)} ADA`);
+    console.log(`   Burn wallet (2.5%): ${burnCommissionADA.toFixed(2)} ADA`);
+    console.log(`   Total commission: ${(teamCommissionADA + burnCommissionADA).toFixed(2)} ADA`);
+    
+    // Build transaction to pay commissions and winners
     let tx = lucid.newTx();
+    
+    // Add commission payments
+    const teamCommissionLovelace = BigInt(Math.floor(teamCommissionADA * 1_000_000));
+    const burnCommissionLovelace = BigInt(Math.floor(burnCommissionADA * 1_000_000));
+    
+    tx = tx.payToAddress(TEAM_WALLET_ADDRESS, { lovelace: teamCommissionLovelace });
+    tx = tx.payToAddress(BURN_WALLET_ADDRESS, { lovelace: burnCommissionLovelace });
+    
+    console.log(`💸 Team commission: ${TEAM_WALLET_ADDRESS.substring(0, 20)}... → ${teamCommissionADA.toFixed(2)} ADA`);
+    console.log(`🔥 Burn commission: ${BURN_WALLET_ADDRESS.substring(0, 20)}... → ${burnCommissionADA.toFixed(2)} ADA`);
     
     // Add winner payments
     for (const winner of winners) {
       const prizeLovelace = BigInt(Math.floor(winner.amount * 1_000_000));
       tx = tx.payToAddress(winner.address, { lovelace: prizeLovelace });
       
-      console.log(`🏆 Winner ${winner.position}: ${winner.address.substring(0, 20)}... → ${winner.amount.toFixed(2)} ADA (${winner.percentage}%)`);
+      console.log(`🏆 Winner ${winner.position}: ${winner.address.substring(0, 20)}... → ${winner.amount.toFixed(2)} ADA (${winner.percentage.toFixed(1)}%)`);
     }
     
     // Complete and submit transaction
