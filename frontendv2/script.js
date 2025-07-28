@@ -1420,192 +1420,55 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🔍 Script UTxO:', scriptUtxo);
         console.log('🔍 Payment amount:', params.paymentAmount, typeof params.paymentAmount);
         
-        // Create Plutus validator with correct format
-        console.log('🔍 Creating PlutusV3 validator');
-        const validator = {
-          type: "PlutusV3",
-          script: params.scriptValidator
-        };
-        console.log('🔍 Validator created successfully');
+        // Use simple payment to pool wallet (no smart contract needed)
+        console.log('🏦 Using simple payment to pool wallet');
+        const poolWalletAddress = params.poolWalletAddress || params.scriptAddress;
+        console.log('🏦 Sending funds to pool wallet:', poolWalletAddress);
         
-        // Skip script hash calculation for now and use backend address directly
-        console.log('🔍 Skipping script hash calculation, using backend address directly');
-        console.log('🔍 Using script address from backend:', params.scriptAddress);
-        
-        // Build transaction step by step to isolate the issue
-        console.log('🔍 Inspecting Lucid object and available methods...');
-        console.log('🔍 Lucid object:', lucid);
-        console.log('🔍 newTx result:', lucid.newTx());
-        console.log('🔍 Available methods on newTx:', Object.getOwnPropertyNames(lucid.newTx()));
-        
-        // Get all available methods on the transaction builder
-        const txBuilder = lucid.newTx();
-        const txMethods = [];
-        let obj = txBuilder;
-        while (obj !== null) {
-          txMethods.push(...Object.getOwnPropertyNames(obj));
-          obj = Object.getPrototypeOf(obj);
-        }
-        console.log('🔍 All available methods on transaction builder:', [...new Set(txMethods)].sort());
-        
-        console.log('🔍 Now building proper script transaction...');
         try {
-          // Build the correct script transaction - try different method combinations
-          console.log('🔍 Attempting method 1: collectFrom + attach');
           const tx = await lucid
             .newTx()
-            .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-            .collectFrom([scriptUtxo], redeemerData)
-            .attach.SpendingValidator(validator)
+            .payToAddress(poolWalletAddress, { lovelace: BigInt(params.paymentAmount) })
             .complete();
           
-          console.log('🔍 ✅ Script transaction built successfully!');
+          console.log('🔍 ✅ Simple payment built successfully!');
           
           const signedTx = await tx.sign().complete();
           const txHash = await signedTx.submit();
           
           showNotification('✅ Transaction Successful', 'success');
-          console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
+          console.log('🎟️ Payment submitted! Tx Hash:', txHash);
+          
+          // Confirm ticket purchase with backend
+          console.log('🔄 Starting backend confirmation...');
+          try {
+            const confirmResponse = await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                address: window.currentUserAddress,
+                ticketCount: ticketCount,
+                txHash: txHash,
+                poolWalletAddress: poolWalletAddress
+              })
+            });
+            
+            if (confirmResponse.ok) {
+              const confirmResult = await confirmResponse.json();
+              console.log('✅ Ticket purchase confirmed with backend:', confirmResult);
+            } else {
+              console.error('❌ Backend confirmation failed:', confirmResponse.status, await confirmResponse.text());
+            }
+          } catch (confirmError) {
+            console.error('❌ Failed to confirm purchase with backend:', confirmError);
+          }
+          
           return;
           
-        } catch (e) {
-          console.log('🔍 ❌ Method 1 failed:', e.message);
-          
-          // Try method 2: different attach syntax
-          try {
-            console.log('🔍 Attempting method 2: attachValidator');
-            const tx = await lucid
-              .newTx()
-              .payToContract(params.scriptAddress, { inline: datumData }, { lovelace: BigInt(params.paymentAmount) })
-              .collectFrom([scriptUtxo], redeemerData)
-              .attachValidator(validator)
-              .complete();
-            
-            console.log('🔍 ✅ Method 2 worked! Script transaction built successfully!');
-            
-            const signedTx = await tx.sign().complete();
-            const txHash = await signedTx.submit();
-            
-            showNotification('✅ Transaction Successful', 'success');
-            console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
-            return;
-            
-          } catch (e2) {
-            console.log('🔍 ❌ Method 2 failed:', e2.message);
-            
-            // Try method 3: simpler approach without collectFrom
-            try {
-              console.log('🔍 Attempting method 3: simple payToContract only');
-              // Send funds to POOL WALLET instead of script address (new architecture)
-              const poolWalletAddress = params.poolWalletAddress || params.scriptAddress;
-              console.log('🏦 Sending funds to pool wallet:', poolWalletAddress);
-              
-              const tx = await lucid
-                .newTx()
-                .payToAddress(poolWalletAddress, { lovelace: BigInt(params.paymentAmount) })
-                .complete();
-              
-              console.log('🔍 ✅ Method 3 worked! Simple contract payment built successfully!');
-              
-              const signedTx = await tx.sign().complete();
-              const txHash = await signedTx.submit();
-              
-              showNotification('✅ Transaction Successful', 'success');
-              console.log('🎟️ Contract payment submitted! Tx Hash:', txHash);
-              
-              // Confirm ticket purchase with backend
-              console.log('🔄 Starting backend confirmation...');
-              try {
-                const confirmResponse = await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    address: window.currentUserAddress,
-                    ticketCount: ticketCount,
-                    txHash: txHash,
-                    poolWalletAddress: poolWalletAddress
-                  })
-                });
-                
-                if (confirmResponse.ok) {
-                  const confirmResult = await confirmResponse.json();
-                  console.log('✅ Ticket purchase confirmed with backend:', confirmResult);
-                } else {
-                  console.error('❌ Backend confirmation failed:', confirmResponse.status, await confirmResponse.text());
-                }
-              } catch (confirmError) {
-                console.error('❌ Failed to confirm purchase with backend:', confirmError);
-              }
-              
-              return;
-              
-            } catch (e3) {
-              console.log('🔍 ❌ Method 3 failed:', e3.message);
-              console.log('🔍 Trying fallback simple payment...');
-              
-              // Final fallback to simple payment
-              try {
-                const simpleTx = await lucid
-                  .newTx()
-                  .payToAddress(poolWalletAddress, { lovelace: BigInt(params.paymentAmount) })
-                  .complete();
-                console.log('🔍 ✅ Fallback payToAddress worked');
-                
-                const signedTx = await simpleTx.sign().complete();
-                                  const txHash = await signedTx.submit();
-                  
-                  showNotification('✅ Transaction Successful', 'success');
-                  console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
-                
-                // Confirm ticket purchase with backend
-                console.log('🔄 Starting backend confirmation (fallback)...');
-                try {
-                  const confirmResponse = await fetch(`${API_BASE_URL}/api/lottery/confirm-ticket`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      address: window.currentUserAddress,
-                      ticketCount: ticketCount,
-                      txHash: txHash,
-                      poolWalletAddress: poolWalletAddress
-                    })
-                  });
-                  
-                  if (confirmResponse.ok) {
-                    const confirmResult = await confirmResponse.json();
-                    console.log('✅ Ticket purchase confirmed with backend (fallback):', confirmResult);
-                  } else {
-                    console.error('❌ Backend confirmation failed (fallback):', confirmResponse.status, await confirmResponse.text());
-                  }
-                } catch (confirmError) {
-                  console.error('❌ Failed to confirm purchase with backend (fallback):', confirmError);
-                }
-                
-                return;
-                
-              } catch (e4) {
-                console.log('🔍 ❌ All methods failed!');
-                console.log('🔍 Method 1 error:', e.message);
-                console.log('🔍 Method 2 error:', e2.message);
-                console.log('🔍 Method 3 error:', e3.message);
-                console.log('🔍 Fallback error:', e4.message);
-                throw e; // Throw original error
-              }
-            }
-          }
+        } catch (paymentError) {
+          console.log('🔍 ❌ Simple payment failed:', paymentError.message);
+          throw paymentError;
         }
-
-        
-        console.log('🟢 Transaction built, requesting wallet to sign');
-        const signedTx = await lucid.wallet.signTx(tx);
-        const txHash = await lucid.wallet.submitTx(signedTx);
-        showNotification('✅ Transaction Successful', 'success');
-        console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
-        
-        // Refresh user's tickets and stats after successful purchase
-        await fetchAndDisplayUserTickets();
-        await refreshStats();
-        
       } catch (walletError) {
         showNotification('❌ Transaction Failed', 'error');
         console.error('❌ Transaction build/signing failed:', walletError);

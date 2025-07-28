@@ -221,6 +221,7 @@ interface WinnerResult {
 }
 
 let automatedRoundTimer: number | null = null;
+let processedRounds = new Set<number>(); // Track processed rounds to prevent duplicates
 
 // Commission wallet addresses
 const TEAM_WALLET_ADDRESS = "addr_test1qr2htllkhpk5nr6wd5zap283u6r2mna5ckvhd63v40chdenmdv65ksa3sqdkq3xrkax99tzkthycgat3faxm32234pxscgct5q";
@@ -339,6 +340,7 @@ async function processAutomatedRound() {
         // broadcastNotification(...) - WebSocket functionality disabled
         
         console.log(`🎰 ROUND ${currentRoundState.roundNumber} STARTED (rollover #${currentRoundState.rolledOverRounds}) - Pool: ${poolADA.toFixed(2)} ADA, Participants: ${participantCount}`);
+        isProcessingRound = false; // Reset flag before returning
         return; // Exit early, don't process winners
       }
       
@@ -356,6 +358,7 @@ async function processAutomatedRound() {
       const existingWinnersForRound = historicalWinnersStorage.find(round => round.roundNumber === currentRoundState.roundNumber);
       if (existingWinnersForRound) {
         console.log(`⚠️ Winners already exist for round ${currentRoundState.roundNumber}, skipping processing`);
+        isProcessingRound = false; // Reset flag before returning
         return;
       }
       
@@ -364,6 +367,7 @@ async function processAutomatedRound() {
         const processingTime = Date.now() - currentRoundState.processingStartTime;
         if (processingTime > 60000) { // If processing has been going for more than 1 minute
           console.log(`⚠️ Round ${currentRoundState.roundNumber} processing timeout, skipping to prevent duplicates`);
+          isProcessingRound = false; // Reset flag before returning
           return;
         }
       }
@@ -381,10 +385,26 @@ async function processAutomatedRound() {
         
         let distributionTxHash = '';
         let distributionSuccessful = false;
+        
+        // Check if we already processed this round (additional protection)
+        if (processedRounds.has(currentRoundState.roundNumber)) {
+          console.log(`⚠️ Round ${currentRoundState.roundNumber} already processed, skipping to prevent duplicates`);
+          isProcessingRound = false;
+          return;
+        }
+        
         try {
           distributionTxHash = await distributeAutomaticPrizes(winners, poolADA);
           console.log(`✅ Automated prize distribution completed successfully!`);
           distributionSuccessful = true;
+          processedRounds.add(currentRoundState.roundNumber); // Mark as processed
+          
+          // Clean up old processed rounds (keep only last 10)
+          if (processedRounds.size > 10) {
+            const roundsToRemove = Array.from(processedRounds).slice(0, processedRounds.size - 10);
+            roundsToRemove.forEach(round => processedRounds.delete(round));
+            console.log(`🧹 Cleaned up ${roundsToRemove.length} old processed rounds`);
+          }
           
         } catch (distributionError) {
           console.error("❌ Error in automated prize distribution:", distributionError);
