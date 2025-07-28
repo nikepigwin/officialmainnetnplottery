@@ -13,7 +13,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css?v=1.48.0">
+    <link rel="stylesheet" href="main.css?v=1.79.0">
 </head>
 <body>
     <div class="container">
@@ -274,7 +274,7 @@
     </div>
     
     <!-- Notification element -->
-    <div id="notification" class="notification" style="display: none;"></div>
+    <div id="notification-container" class="notification-container"></div>
     
     <!-- Spinner -->
     <div id="spinner" class="spinner-overlay" style="display: none;">
@@ -291,7 +291,7 @@
       console.log('✅ Lucid loaded successfully from web module, Data attached');
       // Dynamically load script.js only after Lucid is ready
       const script = document.createElement('script');
-      script.src = 'script.js?v=1.48.0';
+      script.src = 'script.js?v=1.79.0';
       document.body.appendChild(script);
     </script>
     

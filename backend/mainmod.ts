@@ -337,6 +337,13 @@ async function processAutomatedRound() {
       await new Promise(resolve => setTimeout(resolve, 45 * 1000));
       console.log("✅ Jackpot processing completed");
       
+      // Check if winners already exist for this round (prevent duplicate processing)
+      const existingWinnersForRound = historicalWinnersStorage.find(round => round.roundNumber === currentRoundState.roundNumber);
+      if (existingWinnersForRound) {
+        console.log(`⚠️ Winners already exist for round ${currentRoundState.roundNumber}, skipping processing`);
+        return;
+      }
+      
       const winners = selectRoundWinners(currentRoundState.participants);
       
       if (winners.length > 0) {
@@ -358,7 +365,10 @@ async function processAutomatedRound() {
           // Continue with round reset even if distribution fails
         }
         
-        // 6. 🏆 SAVE WINNERS TO HISTORICAL STORAGE
+        // 6. 🏆 SAVE WINNERS TO HISTORICAL STORAGE (with duplicate prevention)
+        // Check if this round already exists in historical storage
+        const existingRoundIndex = historicalWinnersStorage.findIndex(round => round.roundNumber === currentRoundState.roundNumber);
+        
         const winnerData = {
           roundNumber: currentRoundState.roundNumber,
           winners: winners.map(winner => ({
@@ -374,6 +384,12 @@ async function processAutomatedRound() {
           totalParticipants: participantCount,
           totalTickets: currentRoundState.totalTickets
         };
+        
+        // Remove existing entry for this round if it exists (prevent duplicates)
+        if (existingRoundIndex !== -1) {
+          console.log(`🔄 Removing duplicate entry for round ${currentRoundState.roundNumber}`);
+          historicalWinnersStorage.splice(existingRoundIndex, 1);
+        }
         
         // Add to historical storage (keep only last 7 rounds)
         historicalWinnersStorage.unshift(winnerData);

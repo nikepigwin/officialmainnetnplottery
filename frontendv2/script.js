@@ -497,44 +497,73 @@ function decodeCBORBalance(cborHex) {
   }
 }
 
-// Utility Functions
+// Notification system with stacking and deduplication
+let notificationQueue = [];
+let activeNotifications = new Set();
+
 function showNotification(message, type = 'info') {
     console.log(`showNotification called with: "${message}", type: "${type}"`);
     
-    if (!notification) {
-        console.error('Notification element not found');
+    const notificationContainer = document.getElementById('notification-container');
+    if (!notificationContainer) {
+        console.error('Notification container not found');
         return;
     }
     
-    console.log('Notification element:', notification);
+    // Check if this exact notification is already active
+    const notificationKey = `${message}-${type}`;
+    if (activeNotifications.has(notificationKey)) {
+        console.log('Notification already active, skipping:', message);
+        return;
+    }
     
-    // First, remove the show class to reset the animation
-    notification.classList.remove('show');
-    
-    // Clear any existing content and set new message
-    notification.innerHTML = '';
-    notification.textContent = message;
+    // Create notification element
+    const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    
-    console.log('Notification updated, classes:', notification.className);
-    console.log('Notification content:', notification.textContent);
-    
-    // Show the notification
+    notification.textContent = message;
     notification.style.display = 'block';
     
-    // Add a small delay to ensure the CSS transition works
+    // Add click handler to dismiss
+    notification.addEventListener('click', () => {
+        dismissNotification(notification, notificationKey);
+    });
+    
+    // Add to container
+    notificationContainer.appendChild(notification);
+    
+    // Add to active notifications set
+    activeNotifications.add(notificationKey);
+    
+    // Trigger animation
     setTimeout(() => {
         notification.classList.add('show');
-        console.log('Notification shown with show class');
     }, 10);
     
+    // Auto-dismiss after 5 seconds
     setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, 300); // Wait for transition to complete
-        console.log('Notification hidden');
+        if (notification.parentNode) {
+            dismissNotification(notification, notificationKey);
+        }
     }, 5000);
+    
+    console.log('Notification added:', message);
+}
+
+function dismissNotification(notification, notificationKey) {
+    // Remove from active notifications
+    activeNotifications.delete(notificationKey);
+    
+    // Animate out
+    notification.classList.remove('show');
+    
+    // Remove from DOM after animation
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 300);
+    
+    console.log('Notification dismissed:', notification.textContent);
 }
 
 function formatADA(amount) {
@@ -683,12 +712,14 @@ async function refreshStats() {
         if (leftTotalParticipants) leftTotalParticipants.textContent = stats.totalParticipants || 0;
         if (leftTotalTickets) leftTotalTickets.textContent = stats.totalTickets || 0;
         
-        // 🕒 Update countdown timer with backend round start time
-        if (stats.roundStartTime) {
-            startCountdownTimer(stats.roundStartTime);
-        } else if (roundStartTime === null) {
-            // Start countdown from now if no backend time available
-            startCountdownTimer(Date.now());
+        // 🕒 Update countdown timer with backend round start time (only if not processing)
+        if (stats.processingStatus === 'idle') {
+            if (stats.roundStartTime) {
+                startCountdownTimer(stats.roundStartTime);
+            } else if (roundStartTime === null) {
+                // Start countdown from now if no backend time available
+                startCountdownTimer(Date.now());
+            }
         }
         
 
@@ -730,32 +761,66 @@ async function refreshStats() {
         
         if (leftPoolADA) leftPoolADA.textContent = adaAmount.toFixed(2);
         if (leftPoolSNEK) leftPoolSNEK.textContent = snekAmount.toFixed(2);
-        if (leftPoolNIKEPIG) leftPoolNIKEPIG.textContent = nikepigAmount.toFixed(0); // NIKEPIG as integer
+        if (leftPoolNIKEPIG) leftPoolNIKEPIG.textContent = nikepigAmount.toFixed(2); // NIKEPIG as decimal
         
         console.log('✅ Pool values updated:', { adaAmount, snekAmount, nikepigAmount });
         
         // 🎯 UPDATE PROCESSING STATUS AND SALES STATUS
         const salesStatusDisplay = document.getElementById('sales-status-display');
         const countdownDisplay = document.getElementById('countdown-timer-display');
-        const buyTicketsBtn = document.getElementById('buy-tickets-btn');
+        const buyTicketsBtn = document.getElementById('buy-tickets');
         const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+        
+        // Track previous states for notifications
+        if (!window.previousProcessingStatus) {
+          window.previousProcessingStatus = 'idle';
+        }
+        if (!window.previousSalesStatus) {
+          window.previousSalesStatus = true;
+        }
         
         if (stats.processingStatus) {
           console.log('🔄 Processing status:', stats.processingStatus);
           
           // Update sales status based on processing status
           if (stats.processingStatus === 'rollover') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Rollover';
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing Rollover';
             if (countdownDisplay) countdownDisplay.textContent = 'Rollover';
-            // Keep ticket buying disabled during rollover processing
-            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
-            flashBuyButtons.forEach(btn => btn.disabled = true);
+            // Stop countdown timer during processing
+            stopCountdownTimer();
+            // Darken buttons and prevent clicks during rollover
+            if (buyTicketsBtn) {
+              buyTicketsBtn.classList.add('processing');
+            }
+            flashBuyButtons.forEach(btn => {
+              btn.classList.add('processing');
+            });
+            // Show processing message
+            showProcessingMessage('Ticket sales are paused while we process the results. Please wait.');
+            
+            // Show rollover notification when status changes
+            if (window.previousProcessingStatus !== 'rollover') {
+              showNotification('↪️ Rollover', 'info');
+            }
           } else if (stats.processingStatus === 'jackpot') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Jackpot!';
+            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
             if (countdownDisplay) countdownDisplay.textContent = 'Jackpot!';
-            // Keep ticket buying disabled during jackpot processing
-            if (buyTicketsBtn) buyTicketsBtn.disabled = true;
-            flashBuyButtons.forEach(btn => btn.disabled = true);
+            // Stop countdown timer during processing
+            stopCountdownTimer();
+            // Darken buttons and prevent clicks during jackpot
+            if (buyTicketsBtn) {
+              buyTicketsBtn.classList.add('processing');
+            }
+            flashBuyButtons.forEach(btn => {
+              btn.classList.add('processing');
+            });
+            // Show processing message
+            showProcessingMessage('Ticket sales are paused while we process the results. Please wait.');
+            
+            // Show jackpot notification when status changes
+            if (window.previousProcessingStatus !== 'jackpot') {
+              showNotification('🏆 Jackpot', 'success');
+            }
           } else if (stats.processingStatus === 'idle') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
             if (countdownDisplay) {
@@ -764,11 +829,37 @@ async function refreshStats() {
                 startCountdownTimer(stats.roundStartTime);
               }
             }
-            // Re-enable ticket buying when idle
-            if (buyTicketsBtn) buyTicketsBtn.disabled = false;
-            flashBuyButtons.forEach(btn => btn.disabled = false);
+            // Remove processing state when idle
+            if (buyTicketsBtn) {
+              buyTicketsBtn.classList.remove('processing');
+            }
+            flashBuyButtons.forEach(btn => {
+              btn.classList.remove('processing');
+            });
+            // Hide processing message
+            hideProcessingMessage();
+            
+            // Show new round notification when transitioning from processing to idle
+            if (window.previousProcessingStatus === 'rollover' || window.previousProcessingStatus === 'jackpot') {
+              showNotification('🎉 New Round', 'success');
+            }
           }
+          
+          // Update previous processing status
+          window.previousProcessingStatus = stats.processingStatus;
         }
+        
+        // Handle sales status changes
+        const currentSalesStatus = stats.salesOpen;
+        if (window.previousSalesStatus !== currentSalesStatus) {
+          if (currentSalesStatus) {
+            showNotification('🎉 New Round', 'success');
+          }
+          window.previousSalesStatus = currentSalesStatus;
+        }
+        
+        // Update button states based on sales status
+        updateButtonStates(currentSalesStatus);
         
         console.log('✅ Stats updated successfully');
         if (arguments.length > 0) {
@@ -906,10 +997,19 @@ async function refreshWinners() {
         if (!flatHistoricalWinners || flatHistoricalWinners.length === 0) {
             historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
         } else {
-            // Group winners by round number (same round = same box)
+            // Group winners by round number (same round = same box) - with duplicate prevention
             const groupedByRound = {};
+            const processedRounds = new Set(); // Track processed rounds to prevent duplicates
+            
             flatHistoricalWinners.forEach(winner => {
                 const roundKey = winner.roundNumber || 'unknown-round';
+                
+                // Skip if we've already processed this round (prevent duplicates)
+                if (processedRounds.has(roundKey)) {
+                    console.log(`🔄 Skipping duplicate winner for round ${roundKey}`);
+                    return;
+                }
+                
                 if (!groupedByRound[roundKey]) {
                     groupedByRound[roundKey] = {
                         winners: [],
@@ -917,6 +1017,7 @@ async function refreshWinners() {
                         roundNumber: winner.roundNumber,
                         txHash: winner.txHash // Use first winner's txHash for the group
                     };
+                    processedRounds.add(roundKey);
                 }
                 groupedByRound[roundKey].winners.push(winner);
             });
@@ -1105,7 +1206,7 @@ async function connectWallet() {
     // Update sales status display
     updateSalesStatus();
     
-    showNotification('Wallet Connected', 'success');
+            showNotification('🟢 Wallet Connected', 'success');
     
     // Refresh data
     await Promise.all([refreshStats(), refreshWinners()]);
@@ -1137,7 +1238,7 @@ async function connectWallet() {
     updateAdminButtonState();
   } catch (error) {
     console.error('❌ Wallet connection failed:', error);
-    showNotification(`Failed to connect wallet: ${error.message}`, 'error');
+            showNotification('🔴 Wallet Connection Failed', 'error');
   }
 }
 
@@ -1167,7 +1268,7 @@ function disconnectWallet() {
     walletBalanceSpan.textContent = '0';
   }
   
-  showNotification('Wallet disconnected', 'info');
+      showNotification('🔴 Wallet Disconnected', 'info');
 
   // Reset user tickets display
   const userTicketsDisplay = document.getElementById('user-tickets-display');
@@ -1358,7 +1459,7 @@ async function buyTicketsForLottery(ticketCount) {
           const signedTx = await tx.sign().complete();
           const txHash = await signedTx.submit();
           
-          showNotification('🎟️ Script transaction submitted! Tx Hash: ' + txHash, 'success');
+          showNotification('✅ Transaction Successful', 'success');
           console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
           return;
           
@@ -1380,7 +1481,7 @@ async function buyTicketsForLottery(ticketCount) {
             const signedTx = await tx.sign().complete();
             const txHash = await signedTx.submit();
             
-            showNotification('🎟️ Script transaction submitted! Tx Hash: ' + txHash, 'success');
+            showNotification('✅ Transaction Successful', 'success');
             console.log('🎟️ Script transaction submitted! Tx Hash:', txHash);
             return;
             
@@ -1404,7 +1505,7 @@ async function buyTicketsForLottery(ticketCount) {
               const signedTx = await tx.sign().complete();
               const txHash = await signedTx.submit();
               
-              showNotification('🎟️ Contract payment submitted! Tx Hash: ' + txHash, 'success');
+              showNotification('✅ Transaction Successful', 'success');
               console.log('🎟️ Contract payment submitted! Tx Hash:', txHash);
               
               // Confirm ticket purchase with backend
@@ -1446,10 +1547,10 @@ async function buyTicketsForLottery(ticketCount) {
                 console.log('🔍 ✅ Fallback payToAddress worked');
                 
                 const signedTx = await simpleTx.sign().complete();
-                const txHash = await signedTx.submit();
-                
-                showNotification('🎟️ Simple transaction submitted! Tx Hash: ' + txHash, 'success');
-                console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
+                                  const txHash = await signedTx.submit();
+                  
+                  showNotification('✅ Transaction Successful', 'success');
+                  console.log('🎟️ Simple transaction submitted! Tx Hash:', txHash);
                 
                 // Confirm ticket purchase with backend
                 console.log('🔄 Starting backend confirmation (fallback)...');
@@ -1493,14 +1594,15 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🟢 Transaction built, requesting wallet to sign');
         const signedTx = await lucid.wallet.signTx(tx);
         const txHash = await lucid.wallet.submitTx(signedTx);
-        showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
+        showNotification('✅ Transaction Successful', 'success');
         console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
         
-        // Refresh user's tickets after successful purchase
+        // Refresh user's tickets and stats after successful purchase
         await fetchAndDisplayUserTickets();
+        await refreshStats();
         
       } catch (walletError) {
-        showNotification('Transaction build/signing failed: ' + (walletError.message || walletError), 'error');
+        showNotification('❌ Transaction Failed', 'error');
         console.error('❌ Transaction build/signing failed:', walletError);
         throw walletError;
       }
@@ -1513,13 +1615,14 @@ async function buyTicketsForLottery(ticketCount) {
         console.log('🟢 Transaction object created:', unsignedTxObj);
         const signedTx = await lucid.wallet.signTx(unsignedTxObj);
         const txHash = await lucid.wallet.submitTx(signedTx);
-        showNotification('🎟️ Ticket purchase submitted! Tx Hash: ' + txHash, 'success');
+        showNotification('✅ Transaction Successful', 'success');
         console.log('🎟️ Ticket purchase submitted! Tx Hash:', txHash);
         
-        // Refresh user's tickets after successful purchase
+        // Refresh user's tickets and stats after successful purchase
         await fetchAndDisplayUserTickets();
+        await refreshStats();
       } catch (walletError) {
-        showNotification('Wallet signing/submission failed: ' + (walletError.message || walletError), 'error');
+        showNotification('❌ Transaction Failed', 'error');
         console.error('❌ Wallet signing/submission failed:', walletError);
         throw walletError;
       }
@@ -1529,7 +1632,7 @@ async function buyTicketsForLottery(ticketCount) {
     }
   } catch (error) {
     console.error('Ticket purchase error:', error);
-    showNotification(`Failed to buy tickets: ${error.message}`, 'error');
+            showNotification('❌ Transaction Failed', 'error');
     throw error;
   }
 }
@@ -1551,8 +1654,14 @@ function setupFlashBuyButtons() {
     button.addEventListener('click', async (e) => {
       e.preventDefault();
       
+      // Check if sales are closed
+      if (button.classList.contains('processing') || button.disabled) {
+        showNotification('🔒 Sales Closed', 'error');
+        return;
+      }
+      
       if (!connectedWallet || !window.currentUserAddress) {
-        showNotification('Please connect your wallet first', 'error');
+        showNotification('🟡 Connect your Wallet', 'error');
         return;
       }
       
@@ -1574,7 +1683,7 @@ function setupFlashBuyButtons() {
         showNotification(`⚡ Flash bought ${ticketCount} tickets!`, 'success');
       } catch (error) {
         console.error('Flash buy error:', error);
-        showNotification(`Flash buy failed: ${error.message}`, 'error');
+        showNotification('❌ Transaction Failed', 'error');
       }
     });
   });
@@ -1593,6 +1702,34 @@ async function getCurrentPoolAmount() {
 // Sales status monitoring
 let salesStatusMonitor = null;
 let lastSalesStatus = null;
+
+// Function to update button states based on sales status
+function updateButtonStates(salesOpen) {
+  const buyTicketsBtn = document.getElementById('buy-tickets');
+  const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+  
+  if (buyTicketsBtn) {
+    if (!salesOpen) {
+      buyTicketsBtn.disabled = true;
+      buyTicketsBtn.classList.add('processing');
+      buyTicketsBtn.textContent = 'Sales Closed';
+    } else {
+      buyTicketsBtn.disabled = false;
+      buyTicketsBtn.classList.remove('processing');
+      buyTicketsBtn.textContent = 'Buy Tickets';
+    }
+  }
+  
+  flashBuyButtons.forEach(button => {
+    if (!salesOpen) {
+      button.disabled = true;
+      button.classList.add('processing');
+    } else {
+      button.disabled = false;
+      button.classList.remove('processing');
+    }
+  });
+}
 
 // Initialize DOM elements
 function initializeDOMElements() {
@@ -1712,14 +1849,21 @@ function setupEventListeners() {
     buyTicketsBtn.addEventListener('click', async (e) => {
       console.log('🔘 Buy tickets button clicked!');
       e.preventDefault();
+      
+      // Check if sales are closed
+      if (buyTicketsBtn.classList.contains('processing') || buyTicketsBtn.disabled) {
+        showNotification('🔒 Sales Closed', 'error');
+        return;
+      }
+      
       const ticketCount = parseInt(ticketCountInput.value);
       console.log('🎫 Attempting to buy', ticketCount, 'tickets');
       if (!ticketCount || ticketCount <= 0) {
-        showNotification('Please enter a valid number of tickets', 'error');
+        showNotification('⚡ Select a Ticket', 'error');
         return;
       }
       if (!connectedWallet) {
-        showNotification('Please connect your wallet first', 'error');
+        showNotification('🟡 Connect your Wallet', 'error');
         return;
       }
       const purchaseWalletAddress = window.currentUserAddress;
@@ -1728,10 +1872,10 @@ function setupEventListeners() {
         // Add log before calling buyTicketsForLottery
         console.log('🚀 Calling buyTicketsForLottery with', ticketCount);
         await buyTicketsForLottery(ticketCount);
-        showNotification('Ticket purchase flow completed (check wallet for signing prompt)', 'success');
+
       } catch (error) {
         console.error('❌ Error in buyTicketsBtn handler:', error);
-        showNotification('Failed to buy tickets: ' + (error.message || error), 'error');
+        showNotification('❌ Transaction Failed', 'error');
       } finally {
         buyTicketsBtn.textContent = 'Buy Tickets';
       }
@@ -2174,7 +2318,7 @@ async function checkBackendHealth() {
         if (response.ok) {
             const data = await response.json();
             console.log('✅ Backend is healthy:', data);
-            showNotification('Backend connected successfully', 'success');
+    
         } else {
             console.error('❌ Backend health check failed:', response.status);
             showNotification('Backend health check failed', 'error');
@@ -2427,7 +2571,7 @@ function updateCountdown() {
   const elapsed = now - roundStartTime;
   const remaining = Math.max(0, roundDuration - elapsed);
   
-  const displayText = remaining <= 0 ? "Drawing..." : 
+  const displayText = remaining <= 0 ? "00:00" : 
     `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
   
   // 🎯 UPDATE LEFT COLUMN: Connect countdown timer to left column element
@@ -2457,6 +2601,33 @@ function stopCountdownTimer() {
     console.log('⏹️ Countdown timer stopped');
   }
 }
+
+// Show processing message inside flash buy section
+function showProcessingMessage(message) {
+  let processingMessage = document.getElementById('processing-message');
+  if (!processingMessage) {
+    processingMessage = document.createElement('div');
+    processingMessage.id = 'processing-message';
+    processingMessage.className = 'processing-message';
+    // Insert inside flash buy section
+    const flashBuySection = document.querySelector('.flash-buy-section');
+    if (flashBuySection) {
+      flashBuySection.appendChild(processingMessage);
+    }
+  }
+  processingMessage.textContent = message;
+  processingMessage.style.display = 'block';
+}
+
+// Hide processing message
+function hideProcessingMessage() {
+  const processingMessage = document.getElementById('processing-message');
+  if (processingMessage) {
+    processingMessage.style.display = 'none';
+  }
+}
+
+
 
 // 🔔 WEBSOCKET FUNCTIONS REMOVED (was causing connection errors)
 // function connectWebSocket() {
@@ -2547,9 +2718,9 @@ function startSalesStatusMonitoring() {
         });
         
         if (currentSalesStatus) {
-          showNotification('🔄 Sales are now open for the new round!', 'success');
+
         } else {
-          showNotification('⏸️ Sales temporarily closed for winner selection...', 'info');
+
         }
       }
       
