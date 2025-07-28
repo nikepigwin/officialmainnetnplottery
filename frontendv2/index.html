@@ -13,7 +13,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css?v=1.83.0">
+    <link rel="stylesheet" href="main.css?v=1.90.0">
 </head>
 <body>
     <div class="container">
@@ -154,7 +154,7 @@
                                     <label class="form-label">Number of Tickets:</label>
                                 <div class="quantity-input-group">
                                     <button id="minus-ticket" class="quantity-btn">−</button>
-                                    <input type="number" id="ticket-amount" min="1" max="100" value="1" class="quantity-input">
+                                    <input type="number" id="ticket-amount" min="1" value="1" class="quantity-input">
                                     <button id="plus-ticket" class="quantity-btn">+</button>
                                     </div>
                                 </div>
@@ -291,7 +291,7 @@
       console.log('✅ Lucid loaded successfully from web module, Data attached');
       // Dynamically load script.js only after Lucid is ready
       const script = document.createElement('script');
-      script.src = 'script.js?v=1.83.0';
+      script.src = 'script.js?v=1.90.0';
       document.body.appendChild(script);
     </script>
     

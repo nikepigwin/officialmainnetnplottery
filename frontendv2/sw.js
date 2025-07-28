@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v1.83.0-fix-duplicate-winners-and-distribution';
+const CACHE_NAME = 'nikepig-lottery-v1.90.0-unlimited-tickets';
 const urlsToCache = [
   '/',
   '/index.html',

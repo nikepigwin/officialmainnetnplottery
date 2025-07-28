@@ -820,8 +820,12 @@ async function refreshStats() {
             // Show jackpot notification when status changes
             if (window.previousProcessingStatus !== 'jackpot') {
               showNotification('🏆 Jackpot', 'success');
-              // Trigger confetti for jackpot
-              triggerConfetti();
+              // Trigger jackpot celebration animation
+              triggerJackpotCelebration();
+              // Refresh winners after jackpot notification
+              setTimeout(() => {
+                refreshWinners();
+              }, 3000); // Wait 3 seconds for backend to process
             }
           } else if (stats.processingStatus === 'idle') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
@@ -844,6 +848,10 @@ async function refreshStats() {
             // Show new round notification when transitioning from processing to idle
             if (window.previousProcessingStatus === 'rollover' || window.previousProcessingStatus === 'jackpot') {
               showNotification('🎉 New Round', 'success');
+              // Refresh winners immediately when new round starts (after successful distribution)
+              setTimeout(() => {
+                refreshWinners();
+              }, 2000); // Wait 2 seconds for backend to update
             }
           }
           
@@ -1023,10 +1031,13 @@ async function refreshWinners() {
                 return timestampB - timestampA;
             });
             
+            console.log(`📊 Total rounds found: ${sortedGroups.length}`);
+            
             let html = '<div class="historical-winners-container">';
             
-                        // Use only real data - limit to 7 most recent rounds
+            // Use only real data - limit to 7 most recent rounds (first-in-last-out)
             const limitedGroups = sortedGroups.slice(0, 7);
+            console.log(`📊 Displaying ${limitedGroups.length} most recent rounds`);
             
             if (limitedGroups.length === 0) {
                 historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
@@ -1830,10 +1841,8 @@ function setupEventListeners() {
   if (plusTicketBtn) {
     plusTicketBtn.addEventListener('click', () => {
       const currentValue = parseInt(ticketCountInput.value) || 1;
-      if (currentValue < 100) {
-        ticketCountInput.value = currentValue + 1;
-        updateTotalCost();
-      }
+      ticketCountInput.value = currentValue + 1;
+      updateTotalCost();
     });
   }
 
@@ -2452,6 +2461,14 @@ async function init() {
         ]);
     }, 30000);
     
+    // Set up frequent winner refresh during processing periods (every 10 seconds)
+    setInterval(async () => {
+        const stats = await getLotteryStats();
+        if (stats.processingStatus === 'jackpot' || stats.processingStatus === 'rollover') {
+            await refreshWinners();
+        }
+    }, 10000);
+    
     // Start sales status monitoring
     startSalesStatusMonitoring();
     
@@ -2540,21 +2557,13 @@ function showSpinner(show = true, message = '') {
   spinner.textContent = message || (show ? 'Processing...' : '');
 }
 
+// Winner banner functions disabled to prevent glitching
 function showWinnerBanner(prizeAmount, txHash, status) {
-  let banner = document.getElementById('winnerBanner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'winnerBanner';
-    banner.className = 'winner-banner';
-    document.body.prepend(banner);
-  }
-  banner.innerHTML = `<strong>🎉 You won ${formatADA(prizeAmount)}! 🎉</strong><br>Status: ${status || 'Pending'}${txHash ? `<br><a href='https://preview.cardanoscan.io/transaction/${txHash}' target='_blank'>Prize Tx</a>` : ''}`;
-  banner.style.display = 'block';
+  // Function disabled to prevent website glitching
 }
 
 function hideWinnerBanner() {
-  const banner = document.getElementById('winnerBanner');
-  if (banner) banner.style.display = 'none';
+  // Function disabled to prevent website glitching
 }
 
 // 🕒 COUNTDOWN TIMER FUNCTIONS
@@ -2621,63 +2630,25 @@ function hideProcessingMessage() {
   }
 }
 
-// Confetti animation function
-function triggerConfetti() {
+// Jackpot celebration animation function
+function triggerJackpotCelebration() {
     // Find the timer card (Time Until Draw section)
     const timerCard = document.querySelector('.timer-card');
     if (!timerCard) {
-        console.log('Timer card not found for confetti');
+        console.log('Timer card not found for jackpot celebration');
         return;
     }
     
-    // Create confetti container if it doesn't exist
-    let confettiContainer = document.querySelector('.confetti-container');
-    if (!confettiContainer) {
-        confettiContainer = document.createElement('div');
-        confettiContainer.className = 'confetti-container';
-        timerCard.appendChild(confettiContainer);
-    } else {
-        // Move existing container to timer card if it's not already there
-        if (confettiContainer.parentElement !== timerCard) {
-            timerCard.appendChild(confettiContainer);
-        }
-    }
+    // Remove any existing celebration classes
+    timerCard.classList.remove('jackpot-celebration');
     
-    // Clear any existing confetti
-    confettiContainer.innerHTML = '';
+    // Add celebration class
+    timerCard.classList.add('jackpot-celebration');
     
-    // Create confetti pieces
-    const confettiCount = 30; // Reduced count for smaller area
-    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
-    
-    for (let i = 0; i < confettiCount; i++) {
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti';
-        
-        // Random position within the timer card
-        confetti.style.left = Math.random() * 100 + '%';
-        confetti.style.top = Math.random() * 50 + '%'; // Start from top 50% of the card
-        
-        // Random color
-        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-        
-        // Random size (smaller for the contained area)
-        const size = Math.random() * 6 + 4; // 4-10px
-        confetti.style.width = size + 'px';
-        confetti.style.height = size + 'px';
-        
-        // Random animation delay
-        confetti.style.animationDelay = Math.random() * 1.5 + 's';
-        
-        confettiContainer.appendChild(confetti);
-    }
-    
-    // Clean up confetti after animation
+    // Remove celebration after 10 seconds (animation runs for 3s infinite, but we stop after 10s)
     setTimeout(() => {
-        if (confettiContainer) {
-            confettiContainer.innerHTML = '';
-        }
-    }, 4000); // 4 seconds total (3s animation + 1s buffer)
+        timerCard.classList.remove('jackpot-celebration');
+    }, 10000);
 }
 
 

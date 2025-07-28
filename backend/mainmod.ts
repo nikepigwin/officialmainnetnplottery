@@ -721,9 +721,9 @@ router.post("/api/lottery/buy-tickets", async (ctx) => {
       ctx.response.body = { success: false, error: "Invalid wallet address" };
       return;
     }
-    if (!ticketCount || typeof ticketCount !== 'number' || ticketCount < 1 || ticketCount > 100) {
+    if (!ticketCount || typeof ticketCount !== 'number' || ticketCount < 1) {
       ctx.response.status = 400;
-      ctx.response.body = { success: false, error: "Invalid ticket count (1-100 allowed)" };
+      ctx.response.body = { success: false, error: "Invalid ticket count (minimum 1 ticket required)" };
       return;
     }
     if (!tokenPolicyId || typeof tokenPolicyId !== 'string') {

@@ -1230,36 +1230,42 @@ body {
     z-index: 10;
 }
 
-/* Confetti container */
-.confetti-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 9999;
+/* Winner banner removed to prevent glitching */
+
+/* Jackpot celebration - flash buy style sweep animation */
+.timer-card.jackpot-celebration {
+    position: relative;
     overflow: hidden;
 }
 
-.confetti {
+.timer-card.jackpot-celebration::before {
+    content: '';
     position: absolute;
-    width: 10px;
-    height: 10px;
-    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff);
-    border-radius: 2px;
-    animation: confetti-fall 3s linear forwards;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(59, 193, 23, 0.3), transparent);
+    animation: jackpot-flash-sweep 3s infinite;
+    z-index: 10;
 }
 
-@keyframes confetti-fall {
-    0% {
-        transform: translateY(-10px) rotate(0deg);
-        opacity: 1;
-    }
-    100% {
-        transform: translateY(100vh) rotate(720deg);
-        opacity: 0;
-    }
+.timer-card.jackpot-celebration::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: #233044;
+    border-radius: 10px;
+    z-index: 9;
+}
+
+@keyframes jackpot-flash-sweep {
+    0% { left: -100%; }
+    50% { left: 100%; }
+    100% { left: 100%; }
 }
 
 
