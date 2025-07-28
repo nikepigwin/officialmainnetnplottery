@@ -554,10 +554,10 @@ function dismissNotification(notification, notificationKey) {
     activeNotifications.delete(notificationKey);
     
     // Animate out
-    notification.classList.remove('show');
+        notification.classList.remove('show');
     
     // Remove from DOM after animation
-    setTimeout(() => {
+        setTimeout(() => {
         if (notification.parentNode) {
             notification.parentNode.removeChild(notification);
         }
@@ -820,6 +820,8 @@ async function refreshStats() {
             // Show jackpot notification when status changes
             if (window.previousProcessingStatus !== 'jackpot') {
               showNotification('🏆 Jackpot', 'success');
+              // Trigger confetti for jackpot
+              triggerConfetti();
             }
           } else if (stats.processingStatus === 'idle') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
@@ -997,18 +999,11 @@ async function refreshWinners() {
         if (!flatHistoricalWinners || flatHistoricalWinners.length === 0) {
             historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
         } else {
-            // Group winners by round number (same round = same box) - with duplicate prevention
+            // Group winners by round number (same round = same box)
             const groupedByRound = {};
-            const processedRounds = new Set(); // Track processed rounds to prevent duplicates
             
             flatHistoricalWinners.forEach(winner => {
                 const roundKey = winner.roundNumber || 'unknown-round';
-                
-                // Skip if we've already processed this round (prevent duplicates)
-                if (processedRounds.has(roundKey)) {
-                    console.log(`🔄 Skipping duplicate winner for round ${roundKey}`);
-                    return;
-                }
                 
                 if (!groupedByRound[roundKey]) {
                     groupedByRound[roundKey] = {
@@ -1017,7 +1012,6 @@ async function refreshWinners() {
                         roundNumber: winner.roundNumber,
                         txHash: winner.txHash // Use first winner's txHash for the group
                     };
-                    processedRounds.add(roundKey);
                 }
                 groupedByRound[roundKey].winners.push(winner);
             });
@@ -1090,7 +1084,7 @@ async function refreshWinners() {
                                         <div class="winner-amount-item">
                                             <span class="winner-amount">${formatAmountOnly(item.amount)}</span>
                                             <span class="winner-token">${item.token}</span>
-                                        </div>
+                            </div>
                                     `).join('')}
                                 </div>
                             </div>
@@ -1106,14 +1100,14 @@ async function refreshWinners() {
                     '#';
                 
                 html += `
-                    <div class="winner-tx-group">
+                        <div class="winner-tx-group">
                         <a href="${cardanoscanUrl}" target="_blank" 
                            class="tx-button" title="View transaction on Cardanoscan"
                            ${!txHash ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
                             View Transaction
-                        </a>
-                    </div>
-                `;
+                            </a>
+                        </div>
+                    `;
                 
                 html += '</div>'; // Close winner-group
             });
@@ -2625,6 +2619,65 @@ function hideProcessingMessage() {
   if (processingMessage) {
     processingMessage.style.display = 'none';
   }
+}
+
+// Confetti animation function
+function triggerConfetti() {
+    // Find the timer card (Time Until Draw section)
+    const timerCard = document.querySelector('.timer-card');
+    if (!timerCard) {
+        console.log('Timer card not found for confetti');
+        return;
+    }
+    
+    // Create confetti container if it doesn't exist
+    let confettiContainer = document.querySelector('.confetti-container');
+    if (!confettiContainer) {
+        confettiContainer = document.createElement('div');
+        confettiContainer.className = 'confetti-container';
+        timerCard.appendChild(confettiContainer);
+    } else {
+        // Move existing container to timer card if it's not already there
+        if (confettiContainer.parentElement !== timerCard) {
+            timerCard.appendChild(confettiContainer);
+        }
+    }
+    
+    // Clear any existing confetti
+    confettiContainer.innerHTML = '';
+    
+    // Create confetti pieces
+    const confettiCount = 30; // Reduced count for smaller area
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
+    
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        
+        // Random position within the timer card
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = Math.random() * 50 + '%'; // Start from top 50% of the card
+        
+        // Random color
+        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+        
+        // Random size (smaller for the contained area)
+        const size = Math.random() * 6 + 4; // 4-10px
+        confetti.style.width = size + 'px';
+        confetti.style.height = size + 'px';
+        
+        // Random animation delay
+        confetti.style.animationDelay = Math.random() * 1.5 + 's';
+        
+        confettiContainer.appendChild(confetti);
+    }
+    
+    // Clean up confetti after animation
+    setTimeout(() => {
+        if (confettiContainer) {
+            confettiContainer.innerHTML = '';
+        }
+    }, 4000); // 4 seconds total (3s animation + 1s buffer)
 }
 
 

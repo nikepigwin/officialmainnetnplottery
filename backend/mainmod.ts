@@ -344,6 +344,15 @@ async function processAutomatedRound() {
         return;
       }
       
+      // Check if this round was already processed (prevent multiple processing attempts)
+      if (currentRoundState.processingStatus === 'jackpot' && currentRoundState.processingStartTime) {
+        const processingTime = Date.now() - currentRoundState.processingStartTime;
+        if (processingTime > 60000) { // If processing has been going for more than 1 minute
+          console.log(`⚠️ Round ${currentRoundState.roundNumber} processing timeout, skipping to prevent duplicates`);
+          return;
+        }
+      }
+      
       const winners = selectRoundWinners(currentRoundState.participants);
       
       if (winners.length > 0) {
@@ -356,48 +365,54 @@ async function processAutomatedRound() {
         console.log(`🚀 Auto-distributing ${poolADA.toFixed(2)} ADA pool to ${winners.length} winners...`);
         
         let distributionTxHash = '';
+        let distributionSuccessful = false;
         try {
           distributionTxHash = await distributeAutomaticPrizes(winners, poolADA);
           console.log(`✅ Automated prize distribution completed successfully!`);
+          distributionSuccessful = true;
           
         } catch (distributionError) {
           console.error("❌ Error in automated prize distribution:", distributionError);
-          // Continue with round reset even if distribution fails
+          console.log("⚠️ Skipping winner storage due to distribution failure");
         }
         
-        // 6. 🏆 SAVE WINNERS TO HISTORICAL STORAGE (with duplicate prevention)
-        // Check if this round already exists in historical storage
-        const existingRoundIndex = historicalWinnersStorage.findIndex(round => round.roundNumber === currentRoundState.roundNumber);
-        
-        const winnerData = {
-          roundNumber: currentRoundState.roundNumber,
-          winners: winners.map(winner => ({
-            position: winner.position,
-            address: winner.address,
-            amount: winner.amount,
-            percentage: winner.percentage,
-            transactionId: distributionTxHash || `tx_winner_${winner.position}_round_${currentRoundState.roundNumber}`,
-            claimedAt: new Date().toISOString()
-          })),
-          totalPool: poolADA,
-          drawDate: new Date().toISOString(),
-          totalParticipants: participantCount,
-          totalTickets: currentRoundState.totalTickets
-        };
-        
-        // Remove existing entry for this round if it exists (prevent duplicates)
-        if (existingRoundIndex !== -1) {
-          console.log(`🔄 Removing duplicate entry for round ${currentRoundState.roundNumber}`);
-          historicalWinnersStorage.splice(existingRoundIndex, 1);
+        // 6. 🏆 SAVE WINNERS TO HISTORICAL STORAGE (only if distribution was successful)
+        if (distributionSuccessful) {
+          // Check if this round already exists in historical storage
+          const existingRoundIndex = historicalWinnersStorage.findIndex(round => round.roundNumber === currentRoundState.roundNumber);
+          
+          const winnerData = {
+            roundNumber: currentRoundState.roundNumber,
+            winners: winners.map(winner => ({
+              position: winner.position,
+              address: winner.address,
+              amount: winner.amount,
+              percentage: winner.percentage,
+              transactionId: distributionTxHash,
+              claimedAt: new Date().toISOString()
+            })),
+            totalPool: poolADA,
+            drawDate: new Date().toISOString(),
+            totalParticipants: participantCount,
+            totalTickets: currentRoundState.totalTickets
+          };
+          
+          // Remove existing entry for this round if it exists (prevent duplicates)
+          if (existingRoundIndex !== -1) {
+            console.log(`🔄 Removing duplicate entry for round ${currentRoundState.roundNumber}`);
+            historicalWinnersStorage.splice(existingRoundIndex, 1);
+          }
+          
+          // Add to historical storage (keep only last 7 rounds)
+          historicalWinnersStorage.unshift(winnerData);
+          if (historicalWinnersStorage.length > 7) {
+            historicalWinnersStorage = historicalWinnersStorage.slice(0, 7);
+          }
+          
+          console.log(`📝 Saved ${winners.length} winners to historical storage for round ${currentRoundState.roundNumber}`);
+        } else {
+          console.log("❌ Winners not saved to history due to distribution failure");
         }
-        
-        // Add to historical storage (keep only last 7 rounds)
-        historicalWinnersStorage.unshift(winnerData);
-        if (historicalWinnersStorage.length > 7) {
-          historicalWinnersStorage = historicalWinnersStorage.slice(0, 7);
-        }
-        
-        console.log(`📝 Saved ${winners.length} winners to historical storage for round ${currentRoundState.roundNumber}`);
         
         // 7. WebSocket winner announcement removed
         // broadcastNotification({...}) - WebSocket functionality disabled
