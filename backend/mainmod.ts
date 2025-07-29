@@ -362,6 +362,18 @@ async function processAutomatedRound() {
         return;
       }
       
+      // Additional protection: Check if this round was processed recently (within last 5 minutes)
+      const recentProcessedRounds = Array.from(processedRounds).filter(round => {
+        const roundAge = Date.now() - (currentRoundState.roundStartTime || Date.now());
+        return roundAge < 300000; // 5 minutes
+      });
+      
+      if (recentProcessedRounds.includes(currentRoundState.roundNumber)) {
+        console.log(`⚠️ Round ${currentRoundState.roundNumber} was processed recently, skipping to prevent duplicates`);
+        isProcessingRound = false;
+        return;
+      }
+      
       // Check if this round was already processed (prevent multiple processing attempts)
       if (currentRoundState.processingStatus === 'jackpot' && currentRoundState.processingStartTime) {
         const processingTime = Date.now() - currentRoundState.processingStartTime;
@@ -449,8 +461,6 @@ async function processAutomatedRound() {
           console.log("❌ Winners not saved to history due to distribution failure");
         }
         
-        // 7. WebSocket winner announcement removed
-        // broadcastNotification({...}) - WebSocket functionality disabled
       } else {
         console.log("⚠️ No participants - no winners to announce");
       }
@@ -1626,6 +1636,10 @@ router.get("/api/lottery/winners", async (ctx) => {
 
     // Return real historical winners from storage
     const historicalWinners = historicalWinnersStorage;
+    
+    console.log(`📊 Winners API called - Current round: ${currentRound}`);
+    console.log(`📊 Historical winners storage:`, historicalWinners);
+    console.log(`📊 Total winners in storage: ${historicalWinners.reduce((sum, round) => sum + round.winners.length, 0)}`);
 
     ctx.response.body = {
       success: true,

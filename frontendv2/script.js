@@ -960,8 +960,12 @@ async function refreshWinners() {
                     });
                 }
             });
+            console.log('🔍 Flattened historical winners:', flatHistoricalWinners);
         }
-        console.log('🔍 Flattened historical winners:', flatHistoricalWinners);
+        
+        // Store in global variables for lottery-winners page access
+        window.flatHistoricalWinners = flatHistoricalWinners;
+        window.currentRoundWinners = currentRoundWinners || [];
         
         // Check if current user is a winner (for winner banner)
         let userIsWinner = false;
@@ -1001,6 +1005,9 @@ async function refreshWinners() {
             } else {
                 hideWinnerBanner();
         }
+        
+        // Sync winners data to lottery-winners page
+        syncWinnersToTrackerPage();
 
         // --- Historical Winners (Scroll Container) ---
         const historicalWinnersList = document.getElementById('historicalWinnersList');
@@ -2018,6 +2025,135 @@ function setupEventListeners() {
   
   eventListenersSetup = true;
   console.log('✅ Event listeners set up successfully');
+  
+  // Initialize info slider
+  initializeInfoSlider();
+}
+
+// Info Slider functionality
+function initializeInfoSlider() {
+  const slider = document.querySelector('.info-slider');
+  const prevBtn = document.getElementById('info-prev-btn');
+  const nextBtn = document.getElementById('info-next-btn');
+  const dotsContainer = document.getElementById('info-dots');
+  
+  if (!slider || !prevBtn || !nextBtn || !dotsContainer) return;
+  
+  const items = slider.querySelectorAll('.info-item');
+  const totalItems = items.length;
+  const itemsPerSlide = window.innerWidth <= 768 ? 1 : 3; // 1 on mobile, 3 on desktop
+  const totalSlides = Math.ceil(totalItems / itemsPerSlide);
+  let currentSlide = 0;
+  
+  // Create dots for slides (not individual items)
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('div');
+    dot.className = `slider-dot ${i === 0 ? 'active' : ''}`;
+    dot.addEventListener('click', () => goToSlide(i));
+    dotsContainer.appendChild(dot);
+  }
+  
+  function updateSlider() {
+    const itemWidth = items[0].offsetWidth + 24; // Include gap
+    const slideWidth = itemWidth * itemsPerSlide;
+    slider.scrollLeft = currentSlide * slideWidth;
+    
+    // Update dots
+    document.querySelectorAll('.slider-dot').forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentSlide);
+    });
+    
+    // Never disable buttons - always allow looping
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+  }
+  
+  function goToSlide(slideIndex) {
+    currentSlide = slideIndex;
+    updateSlider();
+  }
+  
+  function nextSlide() {
+    currentSlide = (currentSlide + 1) % totalSlides; // Loop back to 0
+    updateSlider();
+  }
+  
+  function prevSlide() {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides; // Loop to last slide
+    updateSlider();
+  }
+  
+  // Event listeners
+  prevBtn.addEventListener('click', prevSlide);
+  nextBtn.addEventListener('click', nextSlide);
+  
+  // Touch/swipe support for mobile
+  let startX = 0;
+  let endX = 0;
+  
+  slider.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+  });
+  
+  slider.addEventListener('touchend', (e) => {
+    endX = e.changedTouches[0].clientX;
+    const diff = startX - endX;
+    
+    if (Math.abs(diff) > 50) { // Minimum swipe distance
+      if (diff > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  });
+  
+  // Auto-play (optional)
+  let autoPlayInterval;
+  
+  function startAutoPlay() {
+    autoPlayInterval = setInterval(() => {
+      nextSlide(); // Always move to next slide (loops automatically)
+    }, 5000); // Change slide every 5 seconds
+  }
+  
+  function stopAutoPlay() {
+    clearInterval(autoPlayInterval);
+  }
+  
+  // Start auto-play and stop on user interaction
+  startAutoPlay();
+  
+  slider.addEventListener('mouseenter', stopAutoPlay);
+  slider.addEventListener('mouseleave', startAutoPlay);
+  prevBtn.addEventListener('click', stopAutoPlay);
+  nextBtn.addEventListener('click', stopAutoPlay);
+  
+  // Handle window resize to update items per slide
+  function handleResize() {
+    const newItemsPerSlide = window.innerWidth <= 768 ? 1 : 3;
+    if (newItemsPerSlide !== itemsPerSlide) {
+      // Recalculate total slides and update dots
+      const newTotalSlides = Math.ceil(totalItems / newItemsPerSlide);
+      dotsContainer.innerHTML = '';
+      
+      for (let i = 0; i < newTotalSlides; i++) {
+        const dot = document.createElement('div');
+        dot.className = `slider-dot ${i === 0 ? 'active' : ''}`;
+        dot.addEventListener('click', () => goToSlide(i));
+        dotsContainer.appendChild(dot);
+      }
+      
+      // Reset to first slide
+      currentSlide = 0;
+      updateSlider();
+    }
+  }
+  
+  window.addEventListener('resize', handleResize);
+  
+  // Initialize
+  updateSlider();
 }
 
 // Update custom dropdown with tokens from backend
@@ -2979,5 +3115,33 @@ if ('serviceWorker' in navigator) {
   // navigator.serviceWorker.register('/sw.js').catch(() => {}); // Disabled to prevent 404
 }
 
+// Global function for lottery-winners page to get winners data
+window.getMainPageWinnersData = function() {
+    return {
+        flatHistoricalWinners: window.flatHistoricalWinners || [],
+        currentRoundWinners: window.currentRoundWinners || []
+    };
+};
 
+// Function to sync winners data to lottery-winners page
+function syncWinnersToTrackerPage() {
+    try {
+        // Get the current winners data
+        const allWinners = [...(window.currentRoundWinners || []), ...(window.flatHistoricalWinners || [])];
+        
+        // Try to sync to lottery-winners page if it's open
+        if (window.opener && window.opener.syncWinnersToTracker) {
+            window.opener.syncWinnersToTracker(allWinners);
+            console.log('🔄 Synced winners to lottery-winners page');
+        }
+        
+        // Also try to sync to same window if we're on the lottery-winners page
+        if (window.syncWinnersToTracker) {
+            window.syncWinnersToTracker(allWinners);
+            console.log('🔄 Synced winners to current lottery-winners page');
+        }
+    } catch (error) {
+        console.error('❌ Error syncing winners to tracker page:', error);
+    }
+}
  
