@@ -1008,6 +1008,9 @@ async function refreshWinners() {
         
         // Sync winners data to lottery-winners page
         syncWinnersToTrackerPage();
+        
+        // Save winners data to localStorage for lottery-winners page access
+        saveWinnersToLocalStorage();
 
         // --- Historical Winners (Scroll Container) ---
         const historicalWinnersList = document.getElementById('historicalWinnersList');
@@ -1711,8 +1714,8 @@ function setupEventListeners() {
   if (plusTicketBtn) {
     plusTicketBtn.addEventListener('click', () => {
       const currentValue = parseInt(ticketCountInput.value) || 1;
-      ticketCountInput.value = currentValue + 1;
-      updateTotalCost();
+        ticketCountInput.value = currentValue + 1;
+        updateTotalCost();
     });
   }
 
@@ -2028,6 +2031,28 @@ function setupEventListeners() {
   
   // Initialize info slider
   initializeInfoSlider();
+  
+  // Winners spreadsheet functionality
+  const toggleWinnersBtn = document.getElementById('toggleWinnersSpreadsheet');
+  if (toggleWinnersBtn) {
+      toggleWinnersBtn.addEventListener('click', toggleWinnersSpreadsheet);
+  }
+  
+  // Winners search functionality
+  const winnersSearchInput = document.getElementById('winners-search');
+  if (winnersSearchInput) {
+      winnersSearchInput.addEventListener('input', (e) => {
+          searchWinners(e.target.value);
+      });
+  }
+  
+  const clearSearchBtn = document.getElementById('clear-search');
+  if (clearSearchBtn) {
+      clearSearchBtn.addEventListener('click', clearWinnersSearch);
+  }
+  
+  // Spreadsheet tab buttons (removed - no longer needed)
+  // Tab switching functionality removed since we now show current month only
 }
 
 // Info Slider functionality
@@ -3144,4 +3169,492 @@ function syncWinnersToTrackerPage() {
         console.error('❌ Error syncing winners to tracker page:', error);
     }
 }
- 
+
+// Function to save winners data to localStorage for lottery-winners page access
+function saveWinnersToLocalStorage() {
+    try {
+        // Use only flatHistoricalWinners to prevent duplicates
+        const allWinners = window.flatHistoricalWinners || [];
+        
+        // Remove duplicates based on round number and transaction ID
+        const uniqueWinners = [];
+        const seenCombinations = new Set();
+        
+        allWinners.forEach(winner => {
+            const roundNumber = winner.roundNumber || '';
+            const txId = winner.transactionId || winner.txId || winner.txHash || '';
+            const combination = `${roundNumber}-${txId}`;
+            
+            if (!seenCombinations.has(combination)) {
+                seenCombinations.add(combination);
+                uniqueWinners.push(winner);
+            } else {
+                console.log('🔄 Skipping duplicate winner from same round:', winner);
+            }
+        });
+        
+        console.log(`💾 Processing ${uniqueWinners.length} unique winners for localStorage`);
+        
+        // Filter to current month only for Detailed Winners History
+        const currentMonthWinners = filterWinnersByCurrentMonth(uniqueWinners);
+        
+        // Save current month winners to localStorage
+        localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: currentMonthWinners }));
+        console.log(`💾 Saved ${currentMonthWinners.length} current month winners to localStorage`);
+        
+    } catch (error) {
+        console.error('❌ Error saving winners to localStorage:', error);
+    }
+}
+
+// Function to toggle winners spreadsheet
+function toggleWinnersSpreadsheet() {
+    const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
+    const toggleBtn = document.getElementById('toggleWinnersSpreadsheet');
+    
+    if (spreadsheetSection.style.display === 'none') {
+        spreadsheetSection.style.display = 'block';
+        toggleBtn.textContent = 'View Less';
+        
+        // Get current month winners only
+        let allWinners = [];
+        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+            allWinners = window.flatHistoricalWinners;
+        } else {
+            // Try to get from localStorage
+            const stored = localStorage.getItem('nikepigWinnersData');
+            if (stored) {
+                const winnersData = JSON.parse(stored);
+                allWinners = winnersData.current || [];
+            }
+        }
+        
+        // Filter to current month only
+        const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+        populateWinnersSpreadsheet(currentMonthWinners);
+    } else {
+        spreadsheetSection.style.display = 'none';
+        toggleBtn.textContent = 'View All';
+    }
+}
+
+// Function to filter winners by current month
+function filterWinnersByCurrentMonth(winners) {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    return winners.filter(winner => {
+        const winnerDate = new Date(winner.timestamp || winner.claimedAt || winner.date);
+        const winnerMonth = winnerDate.getMonth();
+        const winnerYear = winnerDate.getFullYear();
+        
+        return winnerMonth === currentMonth && winnerYear === currentYear;
+    });
+}
+
+// Function to populate winners spreadsheet
+function populateWinnersSpreadsheet(winners) {
+    const tableBody = document.getElementById('winners-table-body');
+    if (!tableBody) return;
+    
+    console.log('📊 Populating winners spreadsheet with:', winners);
+    
+    tableBody.innerHTML = '';
+    
+    if (!winners || winners.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="4" class="empty-message">No winners recorded</td></tr>';
+        return;
+    }
+    
+    // Remove duplicates based on round number and transaction ID
+    const uniqueWinners = [];
+    const seenCombinations = new Set();
+    
+    winners.forEach(winner => {
+        const roundNumber = winner.roundNumber || '';
+        const txId = winner.transactionId || winner.txId || winner.txHash || '';
+        const combination = `${roundNumber}-${txId}`;
+        
+        if (!seenCombinations.has(combination)) {
+            seenCombinations.add(combination);
+            uniqueWinners.push(winner);
+        } else {
+            console.log('🔄 Skipping duplicate winner from same round:', winner);
+        }
+    });
+    
+    console.log(`📊 After deduplication: ${uniqueWinners.length} unique winners`);
+    
+    // Store winners globally for pagination
+    window.allWinners = uniqueWinners;
+    window.currentPage = 0;
+    window.roundsPerPage = 5; // Show 5 rounds per page (15 winners total)
+    window.totalPages = Math.ceil(uniqueWinners.length / (window.roundsPerPage * 3));
+    
+    // Display first page
+    displayWinnersPage(0);
+    
+    // Add pagination controls
+    addPaginationControls();
+}
+
+// Function to display a specific page of winners as round boxes
+function displayWinnersPage(pageIndex) {
+    const tableBody = document.getElementById('winners-table-body');
+    if (!tableBody || !window.allWinners) return;
+    
+    tableBody.innerHTML = '';
+    
+    // Group all winners by round first
+    const allGroupedWinners = groupWinnersByRound(window.allWinners);
+    
+    // Calculate pagination for rounds
+    const startRoundIndex = pageIndex * window.roundsPerPage;
+    const endRoundIndex = Math.min(startRoundIndex + window.roundsPerPage, allGroupedWinners.length);
+    const pageRounds = allGroupedWinners.slice(startRoundIndex, endRoundIndex);
+    
+    pageRounds.forEach((roundGroup) => {
+        // Use the first winner for shared info
+        const firstWinner = roundGroup[0];
+        const roundDate = new Date(firstWinner.timestamp || firstWinner.claimedAt || firstWinner.date);
+        const formattedRoundDate = roundDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        const txId = firstWinner.transactionId || firstWinner.txId || firstWinner.txHash || '';
+        const fullTxId = txId;
+        
+        // Create the round box
+        const roundBox = document.createElement('tr');
+        roundBox.className = 'winner-round-box-row';
+        
+        // Use the date as the round info instead of "Complete Round"
+        const roundInfo = formattedRoundDate;
+        
+        roundBox.innerHTML = `
+            <td colspan="4" class="winner-round-box-cell">
+                <div class="winner-round-box">
+                    <div class="winner-round-info">${roundInfo}</div>
+                    <div class="winner-round-winners">
+                        ${roundGroup.map(winner => {
+                            // Format prize amount
+                            let prizeAmountText = '';
+                            if (winner.prizeAmount) {
+                                if (typeof winner.prizeAmount === 'object') {
+                                    const tokenAmounts = [];
+                                    for (const [token, amount] of Object.entries(winner.prizeAmount)) {
+                                        if (amount > 0) {
+                                            tokenAmounts.push(`<span class=\"token-amount\">${amount} ${token}</span>`);
+                                        }
+                                    }
+                                    prizeAmountText = tokenAmounts.join('<span class=\"token-separator\"> • </span>');
+                                } else {
+                                    prizeAmountText = `<span class=\"token-amount\">${winner.prizeAmount} ADA</span>`;
+                                }
+                            } else if (winner.amountADA) {
+                                prizeAmountText = `<span class=\"token-amount\">${winner.amountADA} ADA</span>`;
+                            } else if (winner.amount) {
+                                prizeAmountText = `<span class=\"token-amount\">${winner.amount} ADA</span>`;
+                            }
+                            const address = winner.winnerAddress || winner.address || '';
+                            const shortAddress = address.length > 20 ? address.substring(0, 10) + '...' + address.substring(address.length - 10) : address;
+                            return `
+                                <div class=\"winner-round-winner\">
+                                    <span class=\"winner-address\" title=\"${address}\">${shortAddress}</span>
+                                    <span class=\"winner-prize\">${prizeAmountText}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div class="winner-round-meta">
+                        <span class="winner-round-txid" title="${fullTxId}">${fullTxId}</span>
+                    </div>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(roundBox);
+    });
+    
+    // Update pagination info
+    updatePaginationInfo(pageIndex);
+}
+
+// Function to group winners by round (same timestamp = same round)
+function groupWinnersByRound(winners) {
+    const grouped = [];
+    const roundGroups = new Map();
+    
+    winners.forEach(winner => {
+        const timestamp = winner.timestamp || winner.claimedAt || winner.date;
+        const roundKey = new Date(timestamp).toISOString().split('T')[0]; // Use date as round key
+        
+        if (!roundGroups.has(roundKey)) {
+            roundGroups.set(roundKey, []);
+        }
+        roundGroups.get(roundKey).push(winner);
+    });
+    
+    // Convert to array and sort by date (newest first)
+    const sortedRounds = Array.from(roundGroups.entries()).sort((a, b) => {
+        return new Date(b[0]) - new Date(a[0]);
+    });
+    
+    sortedRounds.forEach(([date, roundWinners]) => {
+        // Sort winners within round by position (1st, 2nd, 3rd)
+        roundWinners.sort((a, b) => {
+            const posA = a.position || 1;
+            const posB = b.position || 1;
+            return posA - posB;
+        });
+        
+        // Ensure we have exactly 3 winners per round
+        // If we have fewer than 3, we'll show what we have
+        // If we have more than 3, we'll take the first 3 (shouldn't happen in normal operation)
+        const roundWinnersForDisplay = roundWinners.slice(0, 3);
+        
+        // Only add rounds that have at least 1 winner
+        if (roundWinnersForDisplay.length > 0) {
+            grouped.push(roundWinnersForDisplay);
+        }
+    });
+    
+    return grouped;
+}
+
+// Function to add pagination controls
+function addPaginationControls() {
+    const spreadsheetContent = document.querySelector('.spreadsheet-content');
+    if (!spreadsheetContent) return;
+    
+    // Remove existing pagination controls
+    const existingPagination = document.getElementById('winners-pagination');
+    if (existingPagination) {
+        existingPagination.remove();
+    }
+    
+    // Create pagination container
+    const paginationContainer = document.createElement('div');
+    paginationContainer.id = 'winners-pagination';
+    paginationContainer.className = 'winners-pagination';
+    
+    // Add pagination HTML
+    paginationContainer.innerHTML = `
+        <div class="pagination-info">
+            <span id="pagination-text">Page 1 of ${window.totalPages}</span>
+        </div>
+        <div class="pagination-controls">
+            <button id="prev-page" class="pagination-btn" disabled>← Previous</button>
+            <div class="page-numbers" id="page-numbers"></div>
+            <button id="next-page" class="pagination-btn">Next →</button>
+        </div>
+    `;
+    
+    // Insert after the table
+    const table = spreadsheetContent.querySelector('.winners-table');
+    if (table) {
+        table.parentNode.insertBefore(paginationContainer, table.nextSibling);
+    }
+    
+    // Add event listeners
+    setupPaginationEventListeners();
+    
+    // Generate page numbers
+    generatePageNumbers();
+}
+
+// Function to setup pagination event listeners
+function setupPaginationEventListeners() {
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (window.currentPage > 0) {
+                window.currentPage--;
+                displayWinnersPage(window.currentPage);
+                updatePaginationButtons();
+                generatePageNumbers();
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (window.currentPage < window.totalPages - 1) {
+                window.currentPage++;
+                displayWinnersPage(window.currentPage);
+                updatePaginationButtons();
+                generatePageNumbers();
+            }
+        });
+    }
+}
+
+// Function to update pagination info
+function updatePaginationInfo(pageIndex) {
+    const paginationText = document.getElementById('pagination-text');
+    
+    if (paginationText) {
+        paginationText.textContent = `Page ${pageIndex + 1} of ${window.totalPages}`;
+    }
+}
+
+// Function to update pagination buttons
+function updatePaginationButtons() {
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    
+    if (prevBtn) {
+        prevBtn.disabled = window.currentPage === 0;
+    }
+    
+    if (nextBtn) {
+        nextBtn.disabled = window.currentPage === window.totalPages - 1;
+    }
+}
+
+// Function to generate page numbers
+function generatePageNumbers() {
+    const pageNumbersContainer = document.getElementById('page-numbers');
+    if (!pageNumbersContainer) return;
+    
+    pageNumbersContainer.innerHTML = '';
+    
+    const maxVisiblePages = 5;
+    let startPage = Math.max(0, window.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(window.totalPages - 1, startPage + maxVisiblePages - 1);
+    
+    // Adjust start page if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(0, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `page-number ${i === window.currentPage ? 'active' : ''}`;
+        pageBtn.textContent = i + 1;
+        pageBtn.addEventListener('click', () => {
+            window.currentPage = i;
+            displayWinnersPage(window.currentPage);
+            updatePaginationButtons();
+            generatePageNumbers();
+        });
+        pageNumbersContainer.appendChild(pageBtn);
+    }
+}
+
+// Function to format date for spreadsheet (fixed)
+function formatDateForSpreadsheet(winner) {
+    // Try different date fields that might exist
+    const dateFields = ['date', 'timestamp', 'claimedAt', 'roundDate'];
+    
+    for (const field of dateFields) {
+        if (winner[field]) {
+            try {
+                const date = new Date(winner[field]);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString();
+                }
+            } catch (error) {
+                console.log(`Could not parse date from field ${field}:`, winner[field]);
+            }
+        }
+    }
+    
+    // If no valid date found, try to use current date as fallback
+    return new Date().toLocaleDateString();
+}
+
+// Function to search winners by wallet address
+function searchWinners(searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') {
+        // If search is empty, show current month winners
+        let allWinners = [];
+        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+            allWinners = window.flatHistoricalWinners;
+        } else {
+            // Try to get from localStorage
+            const stored = localStorage.getItem('nikepigWinnersData');
+            if (stored) {
+                const winnersData = JSON.parse(stored);
+                allWinners = winnersData.current || [];
+            }
+        }
+        
+        // Filter to current month only
+        const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+        populateWinnersSpreadsheet(currentMonthWinners);
+        return;
+    }
+    
+    try {
+        // Get all winners data from flatHistoricalWinners
+        let allWinners = [];
+        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+            allWinners = window.flatHistoricalWinners;
+        } else {
+            // Try to get from localStorage
+            const stored = localStorage.getItem('nikepigWinnersData');
+            if (stored) {
+                const winnersData = JSON.parse(stored);
+                allWinners = winnersData.current || [];
+            }
+        }
+        
+        // Filter to current month first, then search
+        const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+        const searchLower = searchTerm.toLowerCase();
+        
+        // Filter winners by address within current month
+        const filteredWinners = currentMonthWinners.filter(winner => {
+            const address = winner.winnerAddress || winner.address || '';
+            return address.toLowerCase().includes(searchLower);
+        });
+        
+        // Populate with filtered results (this will reset pagination to page 1)
+        populateWinnersSpreadsheet(filteredWinners);
+        
+        console.log(`🔍 Search completed for: "${searchTerm}" - Found ${filteredWinners.length} results in current month`);
+    } catch (error) {
+        console.error('❌ Error searching winners:', error);
+    }
+}
+
+// Function to clear search
+function clearWinnersSearch() {
+    const searchInput = document.getElementById('winners-search');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    // Get the original winners data from flatHistoricalWinners and repopulate with current month only
+    let allWinners = [];
+    if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+        allWinners = window.flatHistoricalWinners;
+    } else {
+        // Try to get from localStorage
+        const stored = localStorage.getItem('nikepigWinnersData');
+        if (stored) {
+            const winnersData = JSON.parse(stored);
+            allWinners = winnersData.current || [];
+        }
+    }
+    
+    // Filter to current month only
+    const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+    populateWinnersSpreadsheet(currentMonthWinners);
+}
+
+// Function to format transaction ID for spreadsheet
+function formatTransactionId(txId) {
+    if (!txId || txId === 'Distribution Failed') return 'N/A';
+    return txId; // Show full transaction ID
+}
+
+// Function to handle spreadsheet tab switching (removed - no longer needed)
+function switchSpreadsheetTab(month) {
+    // This function is no longer used since we removed the month tabs
+    console.log('Tab switching removed - now showing current month only');
+}

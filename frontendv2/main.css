@@ -1960,47 +1960,102 @@ body {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
+  min-width: 1200px; /* Increased for better spacing and 3 tokens */
+}
+
+.winners-table th,
+.winners-table td {
+    padding: 1rem; /* Increased padding for better spacing */
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .winners-table th {
-  background: #181a20;
-  color: #a3e635;
-  font-weight: bold;
-  padding: 0.75rem;
-  text-align: left;
-  border-bottom: 2px solid #374151;
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .winners-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #374151;
-  color: #fff;
+    color: #ffffff;
+    font-size: 0.9rem;
 }
 
 .winners-table tr:hover {
-  background: #1f2937;
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.winner-position-cell {
-  font-weight: bold;
-  color: #22d3ee;
-  min-width: 100px;
+/* Specific column widths for desktop - flexible spacing for multi-tokens */
+.winners-table th:nth-child(1), /* Prize Amount */
+.winners-table td:nth-child(1) {
+    min-width: 400px; /* More space for multi-tokens */
+    max-width: 400px;
+    text-align: left !important;
 }
 
-.winner-address-cell {
-  font-family: monospace;
-  color: #fff;
+.winners-table th:nth-child(2), /* Address */
+.winners-table td:nth-child(2) {
+    min-width: 350px; /* Moved more to the right */
+    max-width: 350px;
 }
 
-.winner-amount-cell {
-  color: #a3e635;
-  font-weight: bold;
-  text-align: right;
+.winners-table th:nth-child(3), /* Date */
+.winners-table td:nth-child(3) {
+    min-width: 120px; /* Compact, closer to Transaction ID */
+    max-width: 120px;
 }
 
-.winner-tickets-cell {
-  color: #b0b6c3;
-  text-align: center;
+.winners-table th:nth-child(4), /* Transaction ID */
+.winners-table td:nth-child(4) {
+    min-width: 400px; /* Increased for full transaction ID */
+    max-width: 400px;
+    font-size: 0.8rem; /* Same as other mobile columns */
+    word-break: break-all; /* Allow breaking for very long IDs */
+}
+
+/* Transaction ID cell styling for better copy-paste */
+.txid-cell {
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+/* Horizontal multi-token display styles */
+.token-amount {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 2px 0;
+    background: rgba(135, 206, 235, 0.1);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    word-break: keep-all;
+}
+
+.token-separator {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 4px;
+    font-weight: bold;
+}
+
+/* Responsive token display */
+@media (max-width: 1200px) {
+    .winners-table th:nth-child(1), /* Prize Amount */
+    .winners-table td:nth-child(1) {
+        min-width: 350px;
+        max-width: 350px;
+    }
+    
+    .winners-table th:nth-child(2), /* Address */
+    .winners-table td:nth-child(2) {
+        min-width: 300px;
+        max-width: 300px;
+    }
 }
 
 /* --- Historical Winners Section Styles --- */
@@ -2896,4 +2951,803 @@ body {
     .view-more-btn {
         align-self: flex-end;
     }
+}
+
+/* Winners Spreadsheet Section */
+.winners-spreadsheet {
+    margin-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 2rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.spreadsheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.spreadsheet-header h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.spreadsheet-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.search-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.search-input {
+    background: rgba(35, 48, 68, 0.8);
+    border: 1px solid rgba(135, 206, 235, 0.3);
+    color: #ffffff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    min-width: 250px;
+    transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+    color: #888;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #87CEEB;
+    box-shadow: 0 0 0 2px rgba(135, 206, 235, 0.2);
+}
+
+.clear-search-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.clear-search-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.spreadsheet-tabs {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.spreadsheet-tabs .tab-btn {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 235, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.spreadsheet-tabs .tab-btn:hover {
+    background: rgba(135, 206, 235, 0.2);
+}
+
+.spreadsheet-tabs .tab-btn.active {
+    background: #87CEEB;
+    color: #1a1a1a;
+    border-color: #87CEEB;
+}
+
+.spreadsheet-content {
+    background: rgba(35, 48, 68, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+    max-width: 100%;
+    padding-right: 15px; /* Extra spacing on the right for mobile */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.winners-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    min-width: 1200px; /* Increased for better spacing and 3 tokens */
+}
+
+.winners-table th,
+.winners-table td {
+    padding: 1rem; /* Increased padding for better spacing */
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.winners-table th {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.winners-table td {
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+.winners-table tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+
+
+
+
+.empty-message {
+    text-align: center;
+    color: #888;
+    padding: 2rem;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .spreadsheet-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .spreadsheet-tabs {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .winners-table {
+        font-size: 0.8rem;
+        min-width: 1000px; /* Compact but functional for mobile */
+    }
+    
+    .winners-table th,
+    .winners-table td {
+        padding: 0.75rem; /* Slightly reduced padding for mobile */
+    }
+    
+    /* Mobile spreadsheet scrolling */
+    .spreadsheet-content {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Specific column widths for mobile - flexible spacing for multi-tokens */
+    .winners-table th:nth-child(1), /* Prize Amount */
+    .winners-table td:nth-child(1) {
+        min-width: 300px; /* More space for multi-tokens */
+        max-width: 300px;
+        text-align: left !important;
+    }
+    
+    .winners-table th:nth-child(2), /* Address */
+    .winners-table td:nth-child(2) {
+        min-width: 280px; /* Moved more to the right */
+        max-width: 280px;
+    }
+    
+    .winners-table th:nth-child(3), /* Date */
+    .winners-table td:nth-child(3) {
+        min-width: 100px; /* Compact, closer to Transaction ID */
+        max-width: 100px;
+    }
+    
+    .winners-table th:nth-child(4), /* Transaction ID */
+    .winners-table td:nth-child(4) {
+        min-width: 400px; /* Increased for full transaction ID */
+        max-width: 400px;
+        font-family: 'Courier New', monospace; /* Monospace for better readability */
+        font-size: 0.75rem;
+        word-break: break-all; /* Allow breaking for very long IDs */
+    }
+    
+    /* Mobile horizontal multi-token display styles */
+    .token-amount {
+        display: inline-block;
+        padding: 1px 4px;
+        margin: 1px 0;
+        background: rgba(135, 206, 235, 0.1);
+        border-radius: 3px;
+        font-size: 0.8rem;
+        line-height: 1.1;
+        white-space: nowrap;
+        word-break: keep-all;
+    }
+    
+    .token-separator {
+        color: rgba(255, 255, 255, 0.5);
+        margin: 0 2px;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+    
+    /* Mobile spreadsheet content with extra spacing */
+    .spreadsheet-content {
+        width: 100%;
+        max-width: 100%;
+        padding-right: 30px; /* Increased padding on the right for mobile */
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mobile table header background */
+    .winners-table {
+        width: 100%;
+        min-width: 100%;
+        border-collapse: collapse;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .winners-table th {
+        background: rgba(135, 206, 235, 0.1);
+        color: #87CEEB;
+        font-weight: 600;
+        font-size: 0.8rem;
+        width: 100%; /* Ensure header extends fully on mobile */
+    }
+}
+
+.winners-table th,
+.winners-table td {
+    padding: 1rem; /* Increased padding for better spacing */
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.winners-table th {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.winners-table td {
+    color: #ffffff;
+    font-size: 0.9rem;
+}
+
+/* Extend spreadsheet to full width */
+.winners-spreadsheet {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.spreadsheet-content {
+    width: 100%;
+    max-width: 100%;
+    padding-right: 40px; /* Increased padding on the right to prevent touching */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure header background extends to full width */
+.winners-table {
+    width: 100%;
+    min-width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    padding: 0;
+}
+
+.winners-table th {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    font-weight: 600;
+    font-size: 0.9rem;
+    width: 100%; /* Ensure header extends fully */
+}
+
+/* Winners Pagination Styles */
+.winners-pagination {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(135, 206, 235, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(135, 206, 235, 0.2);
+}
+
+.pagination-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    color: #87CEEB;
+}
+
+.pagination-info span {
+    background: rgba(135, 206, 235, 0.1);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pagination-btn {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 235, 0.3);
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 80px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: rgba(135, 206, 235, 0.2);
+    border-color: rgba(135, 206, 235, 0.5);
+    transform: translateY(-1px);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.page-numbers {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.page-number {
+    background: rgba(135, 206, 235, 0.1);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 235, 0.3);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 35px;
+    text-align: center;
+}
+
+.page-number:hover {
+    background: rgba(135, 206, 235, 0.2);
+    border-color: rgba(135, 206, 235, 0.5);
+    transform: translateY(-1px);
+}
+
+.page-number.active {
+    background: rgba(135, 206, 235, 0.3);
+    border-color: rgba(135, 206, 235, 0.6);
+    color: #fff;
+    font-weight: 600;
+}
+
+/* Mobile responsive pagination */
+@media (max-width: 768px) {
+    .pagination-info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        gap: 8px;
+    }
+    
+    .pagination-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        min-width: 70px;
+    }
+    
+    .page-number {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        min-width: 30px;
+    }
+    
+    .page-numbers {
+        gap: 3px;
+    }
+}
+
+/* Smooth transitions for table rows */
+.winners-table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.winners-table tbody tr:hover {
+    background: rgba(135, 206, 235, 0.05);
+    transform: translateX(2px);
+}
+
+/* Loading animation for pagination */
+.winners-pagination.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.winners-pagination.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(135, 206, 235, 0.3);
+    border-top: 2px solid #87CEEB;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Round Grouping Styles */
+.round-separator {
+    height: 20px;
+    background: transparent;
+}
+
+.separator-cell {
+    border: none;
+    background: linear-gradient(to right, transparent, rgba(135, 206, 235, 0.1), transparent);
+    height: 2px;
+    padding: 0;
+}
+
+.round-header {
+    background: rgba(135, 206, 235, 0.08);
+    border-top: 2px solid rgba(135, 206, 235, 0.2);
+    border-bottom: 1px solid rgba(135, 206, 235, 0.1);
+}
+
+.round-header-cell {
+    padding: 12px 15px !important;
+    text-align: center;
+    font-weight: 600;
+    color: #87CEEB;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(135, 206, 235, 0.08) !important;
+}
+
+.round-label {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #87CEEB;
+}
+
+.round-date {
+    font-size: 0.9rem;
+    color: rgba(135, 206, 235, 0.8);
+    background: rgba(135, 206, 235, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Winner row styling */
+.winner-row {
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.winner-row:hover {
+    background: rgba(135, 206, 235, 0.05);
+    border-left-color: rgba(135, 206, 235, 0.3);
+    transform: translateX(2px);
+}
+
+/* Winner group styling - unified highlighting for all three winners */
+.winner-group {
+    background: rgba(135, 206, 235, 0.03);
+    border-left: 3px solid rgba(135, 206, 235, 0.2);
+    transition: all 0.3s ease;
+}
+
+.winner-group:hover {
+    background: rgba(135, 206, 235, 0.08);
+    border-left-color: rgba(135, 206, 235, 0.4);
+    transform: translateX(2px);
+}
+
+/* Prize amount cell styling */
+.prize-amount-cell {
+    display: flex;
+    align-items: center;
+}
+
+/* Mobile responsive round grouping */
+@media (max-width: 768px) {
+    .round-header-cell {
+        flex-direction: column;
+        gap: 5px;
+        padding: 10px 12px !important;
+    }
+    
+    .round-label {
+        font-size: 0.9rem;
+    }
+    
+    .round-date {
+        font-size: 0.8rem;
+        padding: 3px 6px;
+    }
+    
+    .prize-amount-cell {
+        gap: 4px;
+    }
+}
+
+/* Animation for round headers */
+.round-header {
+    animation: slideInFromTop 0.3s ease-out;
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover effect for round headers */
+.round-header:hover {
+    background: rgba(135, 206, 235, 0.12) !important;
+}
+
+.round-header:hover .round-label {
+    color: #fff;
+}
+
+/* Enhanced separator animation */
+.separator-cell {
+    animation: fadeInSeparator 0.5s ease-in;
+}
+
+@keyframes fadeInSeparator {
+    from {
+        opacity: 0;
+        transform: scaleX(0);
+    }
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+/* Round Box Styles - Modern Card Design */
+.winner-round-box-row {
+    background: transparent;
+    border: none;
+}
+
+.winner-round-box-cell {
+    padding: 0 !important;
+    border: none;
+    background: transparent;
+}
+
+.winner-round-box {
+    background: rgba(135, 206, 235, 0.05);
+    border: 1px solid rgba(135, 206, 235, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.winner-round-box:hover {
+    background: rgba(135, 206, 235, 0.08);
+    border-color: rgba(135, 206, 235, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    /* Removed transform: translateY(-2px); */
+}
+
+.winner-round-winners {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.winner-round-winner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: rgba(135, 206, 235, 0.03);
+    border-radius: 8px;
+    border-left: 3px solid rgba(135, 206, 235, 0.2);
+    transition: all 0.3s ease;
+}
+
+.winner-round-winner:hover {
+    background: rgba(135, 206, 235, 0.08);
+    border-left-color: rgba(135, 206, 235, 0.4);
+    transform: translateX(3px);
+}
+
+.winner-address {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #87CEEB;
+    font-weight: 500;
+    flex: 0 0 40%; /* Left corner */
+}
+
+.winner-prize {
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    flex: 1; /* Middle */
+}
+
+.winner-round-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid rgba(135, 206, 235, 0.2);
+    font-size: 0.85rem;
+    color: rgba(135, 206, 235, 0.8);
+}
+
+.winner-round-txid {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: rgba(135, 206, 235, 0.7);
+    cursor: text;
+    user-select: text;
+    text-align: center;
+    /* Removed max-width, overflow, text-overflow, white-space for full display */
+}
+
+/* Mobile responsive round boxes */
+@media (max-width: 768px) {
+    .winner-round-box {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+    }
+    
+    .winner-round-winner {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+    
+    .winner-address {
+        font-size: 0.8rem;
+        flex: 0 0 35%;
+    }
+    
+    .winner-prize {
+        text-align: center;
+        font-size: 0.9rem;
+        flex: 1;
+    }
+    
+    .winner-round-meta {
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .winner-round-txid {
+        max-width: 100%;
+        font-size: 0.75rem;
+    }
+}
+
+/* Animation for round boxes */
+.winner-round-box {
+    animation: slideInFromBottom 0.4s ease-out;
+}
+
+@keyframes slideInFromBottom {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Remove old table-based styles */
+.winners-table tbody tr:not(.winner-round-box-row) {
+    display: none;
+}
+
+.winners-table th {
+    display: none;
+}
+
+/* Ensure table doesn't interfere with box layout */
+.winners-table {
+    border: none;
+    background: transparent;
+}
+
+.winners-table td {
+    border: none;
+    padding: 0;
+    background: transparent;
+}
+
+.winner-round-info {
+    text-align: center;
+    font-size: 0.85rem;
+    color: rgba(135, 206, 235, 0.8);
+    font-weight: 500;
+    margin-bottom: 15px;
+    padding: 6px 12px;
+    background: rgba(135, 206, 235, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(135, 206, 235, 0.2);
+}
+
+.winner-round-winners {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v1.121.0-manual-sync-approach';
+const CACHE_NAME = 'nikepig-lottery-v2.14.0-duplicate-fix';
 const urlsToCache = [
   '/',
   '/index.html',

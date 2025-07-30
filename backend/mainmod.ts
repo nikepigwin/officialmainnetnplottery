@@ -354,34 +354,11 @@ async function processAutomatedRound() {
       await new Promise(resolve => setTimeout(resolve, 45 * 1000));
       console.log("✅ Jackpot processing completed");
       
-      // Check if winners already exist for this round (prevent duplicate processing)
-      const existingWinnersForRound = historicalWinnersStorage.find(round => round.roundNumber === currentRoundState.roundNumber);
-      if (existingWinnersForRound) {
-        console.log(`⚠️ Winners already exist for round ${currentRoundState.roundNumber}, skipping processing`);
-        isProcessingRound = false; // Reset flag before returning
-        return;
-      }
-      
-      // Additional protection: Check if this round was processed recently (within last 5 minutes)
-      const recentProcessedRounds = Array.from(processedRounds).filter(round => {
-        const roundAge = Date.now() - (currentRoundState.roundStartTime || Date.now());
-        return roundAge < 300000; // 5 minutes
-      });
-      
-      if (recentProcessedRounds.includes(currentRoundState.roundNumber)) {
-        console.log(`⚠️ Round ${currentRoundState.roundNumber} was processed recently, skipping to prevent duplicates`);
+      // SINGLE SOLID DUPLICATE PREVENTION: Check if this round was already processed
+      if (processedRounds.has(currentRoundState.roundNumber)) {
+        console.log(`⚠️ Round ${currentRoundState.roundNumber} already processed, skipping to prevent duplicates`);
         isProcessingRound = false;
         return;
-      }
-      
-      // Check if this round was already processed (prevent multiple processing attempts)
-      if (currentRoundState.processingStatus === 'jackpot' && currentRoundState.processingStartTime) {
-        const processingTime = Date.now() - currentRoundState.processingStartTime;
-        if (processingTime > 60000) { // If processing has been going for more than 1 minute
-          console.log(`⚠️ Round ${currentRoundState.roundNumber} processing timeout, skipping to prevent duplicates`);
-          isProcessingRound = false; // Reset flag before returning
-          return;
-        }
       }
       
       const winners = selectRoundWinners(currentRoundState.participants);
@@ -398,18 +375,11 @@ async function processAutomatedRound() {
         let distributionTxHash = '';
         let distributionSuccessful = false;
         
-        // Check if we already processed this round (additional protection)
-        if (processedRounds.has(currentRoundState.roundNumber)) {
-          console.log(`⚠️ Round ${currentRoundState.roundNumber} already processed, skipping to prevent duplicates`);
-          isProcessingRound = false;
-          return;
-        }
-        
         try {
           distributionTxHash = await distributeAutomaticPrizes(winners, poolADA);
           console.log(`✅ Automated prize distribution completed successfully!`);
           distributionSuccessful = true;
-          processedRounds.add(currentRoundState.roundNumber); // Mark as processed
+          processedRounds.add(currentRoundState.roundNumber); // Mark as processed IMMEDIATELY
           
           // Clean up old processed rounds (keep only last 10)
           if (processedRounds.size > 10) {
@@ -450,49 +420,31 @@ async function processAutomatedRound() {
             historicalWinnersStorage.splice(existingRoundIndex, 1);
           }
           
-          // Add to historical storage (keep only last 7 rounds)
-          historicalWinnersStorage.unshift(winnerData);
-          if (historicalWinnersStorage.length > 7) {
-            historicalWinnersStorage = historicalWinnersStorage.slice(0, 7);
-          }
+          // Add new winner data
+          historicalWinnersStorage.push(winnerData);
+          console.log(`💾 Saved winners for round ${currentRoundState.roundNumber} to historical storage`);
           
-          console.log(`📝 Saved ${winners.length} winners to historical storage for round ${currentRoundState.roundNumber}`);
-        } else {
-          console.log("❌ Winners not saved to history due to distribution failure");
+          // WebSocket notifications removed
+          // broadcastNotification(...) - WebSocket functionality disabled
         }
         
-      } else {
-        console.log("⚠️ No participants - no winners to announce");
+        // 7. 🎰 START NEW ROUND
+        currentRoundState.roundNumber++;
+        currentRoundState.roundStartTime = Date.now();
+        currentRoundState.salesOpen = true;
+        currentRoundState.processingStatus = 'idle';
+        currentRoundState.participants = [];
+        currentRoundState.totalTickets = 0;
+        currentRoundState.totalPoolAmount = 0;
+        
+        console.log(`🎰 ROUND ${currentRoundState.roundNumber} STARTED - Pool: 0 ADA, Participants: 0`);
       }
       
-      // 5. 🏆 RESET FOR FRESH NEW ROUND (only after winners selected)
-      const previousRound = currentRoundState.roundNumber;
-      const previousPool = poolADA;
-      const previousRollovers = currentRoundState.rolledOverRounds;
-      
-      currentRoundState = {
-        roundNumber: currentRoundState.roundNumber + 1,
-        roundStartTime: Date.now(),
-        participants: [],
-        totalTickets: 0,
-        totalPoolAmount: 0,
-        salesOpen: true,
-        roundDuration: 3 * 60 * 1000, // 3 minutes for testing
-        minimumParticipants: 4, // need at least 4 participants to process round
-        rolledOverRounds: 0, // reset rollover count for fresh round
-        processingStatus: 'idle' // reset processing status
-      };
-      
-      console.log(`🔄 FRESH NEW ROUND ${currentRoundState.roundNumber} STARTED! Previous round processed after ${previousRollovers} rollovers.`);
-      
-      // 6. WebSocket fresh round announcement removed  
-      // broadcastNotification({...}) - WebSocket functionality disabled
+      isProcessingRound = false; // Reset flag AFTER all processing is complete
     }
   } catch (error) {
     console.error("❌ Error in automated round processing:", error);
-  } finally {
-    // Always reset the processing flag
-    isProcessingRound = false;
+    isProcessingRound = false; // Reset flag on error
   }
 }
 
