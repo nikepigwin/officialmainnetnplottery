@@ -324,9 +324,9 @@ async function processAutomatedRound() {
         console.log(`🔄 ROLLOVER: Only ${participantCount} participants (need ${currentRoundState.minimumParticipants})`);
         console.log(`💰 Pool of ${poolADA.toFixed(2)} ADA rolling over to next round (rollover #${currentRoundState.rolledOverRounds})`);
         
-        // Wait 45 seconds for rollover processing
-        console.log("⏳ Waiting 45 seconds for rollover processing...");
-        await new Promise(resolve => setTimeout(resolve, 45 * 1000));
+        // 🎯 NEW: Wait only 20 seconds for rollover processing (faster since no backend work needed)
+        console.log("⏳ Waiting 20 seconds for rollover processing...");
+        await new Promise(resolve => setTimeout(resolve, 20 * 1000));
         console.log("✅ Rollover processing completed");
         
         // Keep participants and pool, but advance round number and reset timer
@@ -349,7 +349,12 @@ async function processAutomatedRound() {
       currentRoundState.processingStartTime = Date.now();
       console.log(`✅ PROCESSING ROUND: ${participantCount} participants (minimum met!) - JACKPOT!`);
       
-      // Wait 45 seconds for jackpot processing
+      // 🎯 NEW: Wait 20 seconds before starting to draw winners (total 40 seconds halt)
+      console.log("⏳ Waiting 20 seconds before drawing winners...");
+      await new Promise(resolve => setTimeout(resolve, 20 * 1000));
+      console.log("🎯 Starting winner selection...");
+      
+      // 🎯 NEW: Wait 45 seconds for jackpot processing (total 65 seconds)
       console.log("⏳ Waiting 45 seconds for jackpot processing...");
       await new Promise(resolve => setTimeout(resolve, 45 * 1000));
       console.log("✅ Jackpot processing completed");

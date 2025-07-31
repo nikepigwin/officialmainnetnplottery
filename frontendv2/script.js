@@ -801,6 +801,8 @@ async function refreshStats() {
             // Show rollover notification when status changes
             if (window.previousProcessingStatus !== 'rollover') {
               showNotification('↪️ Rollover', 'info');
+              // Trigger rollover celebration animation
+              triggerRolloverCelebration();
             }
           } else if (stats.processingStatus === 'jackpot') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
@@ -857,6 +859,11 @@ async function refreshStats() {
           
           // Update previous processing status
           window.previousProcessingStatus = stats.processingStatus;
+        }
+        
+        // 🎯 NEW: Store participant count for early status determination
+        if (stats.participants) {
+          window.currentParticipantCount = stats.participants.length;
         }
         
         // Handle sales status changes
@@ -1011,6 +1018,17 @@ async function refreshWinners() {
         
         // Save winners data to localStorage for lottery-winners page access
         saveWinnersToLocalStorage();
+        
+        // Auto-refresh Detailed Winners History if it's currently open
+        refreshDetailedWinnersHistory();
+        
+        // Set up periodic refresh for Detailed Winners History (every 10 seconds for testing)
+        if (!window.detailedWinnersRefreshInterval) {
+            window.detailedWinnersRefreshInterval = setInterval(() => {
+                console.log('🔄 Periodic refresh of Detailed Winners History...');
+                refreshDetailedWinnersHistory();
+            }, 10000); // 10 seconds for testing
+        }
 
         // --- Historical Winners (Scroll Container) ---
         const historicalWinnersList = document.getElementById('historicalWinnersList');
@@ -1466,6 +1484,10 @@ async function buyTicketsForLottery(ticketCount) {
             if (confirmResponse.ok) {
               const confirmResult = await confirmResponse.json();
               console.log('✅ Ticket purchase confirmed with backend:', confirmResult);
+              
+              // Refresh user tickets and stats after successful purchase
+              await fetchAndDisplayUserTickets();
+              await refreshStats();
             } else {
               console.error('❌ Backend confirmation failed:', confirmResponse.status, await confirmResponse.text());
             }
@@ -2033,10 +2055,26 @@ function setupEventListeners() {
   initializeInfoSlider();
   
   // Winners spreadsheet functionality
-  const toggleWinnersBtn = document.getElementById('toggleWinnersSpreadsheet');
-  if (toggleWinnersBtn) {
-      toggleWinnersBtn.addEventListener('click', toggleWinnersSpreadsheet);
-  }
+      const toggleWinnersBtn = document.getElementById('toggleWinnersSpreadsheet');
+    if (toggleWinnersBtn) {
+        toggleWinnersBtn.addEventListener('click', toggleWinnersSpreadsheet);
+    }
+    
+
+    
+    // Force cache clear and reload function
+    window.forceRefresh = function() {
+        console.log('🔄 Force clearing cache and reloading...');
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => {
+                    caches.delete(name);
+                });
+            });
+        }
+        localStorage.clear();
+        location.reload(true);
+    };
   
   // Winners search functionality
   const winnersSearchInput = document.getElementById('winners-search');
@@ -2377,6 +2415,9 @@ async function initializeSmartContract() {
       ]
     };
     // Use the datum directly without complex type definition
+    if (!lucid.wallet || !lucid.wallet.address) {
+      throw new Error("Wallet not connected. Please connect your wallet first.");
+    }
     const address = await lucid.wallet.address();
     const utxos = await lucid.wallet.getUtxos();
     const balance = utxos.reduce((sum, utxo) => sum + (utxo.assets.lovelace || 0n), 0n);
@@ -2493,6 +2534,13 @@ async function init() {
         }
     }, 10000);
     
+    // Set up periodic user tickets refresh (every 30 seconds)
+    setInterval(async () => {
+        if (window.currentUserAddress) {
+            await fetchAndDisplayUserTickets();
+        }
+    }, 30000);
+    
     // Start sales status monitoring
     startSalesStatusMonitoring();
     
@@ -2598,12 +2646,70 @@ function updateCountdown() {
   const elapsed = now - roundStartTime;
   const remaining = Math.max(0, roundDuration - elapsed);
   
-  const displayText = remaining <= 0 ? "00:00" : 
-    `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
+  // 🎯 NEW: Early sales closure (20 seconds before countdown reaches 0)
+  const salesCloseTime = 20 * 1000; // 20 seconds in milliseconds
+  const timeUntilSalesClose = remaining - salesCloseTime;
+  
+  // 🎯 NEW: Determine early status announcement
+  let statusMessage = '';
+  let isSalesClosed = false;
+  
+  if (remaining <= 0) {
+    // Countdown reached 0 - show final status
+    const participantCount = window.currentParticipantCount || 0;
+    if (participantCount < 4) {
+      statusMessage = 'Rollover';
+    } else {
+      statusMessage = 'Jackpot!';
+    }
+    isSalesClosed = true;
+  } else if (timeUntilSalesClose <= 0) {
+    // Sales closed but countdown still running
+    statusMessage = 'Sales Closed';
+    isSalesClosed = true;
+  } else {
+    // Normal countdown
+    statusMessage = `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
+    isSalesClosed = false;
+  }
   
   // 🎯 UPDATE LEFT COLUMN: Connect countdown timer to left column element
   const leftCountdownTimer = document.getElementById('countdown-timer-display');
-  if (leftCountdownTimer) leftCountdownTimer.textContent = displayText;
+  if (leftCountdownTimer) leftCountdownTimer.textContent = statusMessage;
+  
+  // 🎯 NEW: Update sales status and button states
+  updateSalesStatusForCountdown(isSalesClosed);
+}
+
+// 🎯 NEW: Function to update sales status based on countdown
+function updateSalesStatusForCountdown(salesClosed) {
+  const salesStatusDisplay = document.getElementById('sales-status-display');
+  const buyTicketsBtn = document.getElementById('buy-tickets');
+  const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+  
+  if (salesClosed) {
+    if (salesStatusDisplay) salesStatusDisplay.textContent = 'Closed';
+    if (buyTicketsBtn) {
+      buyTicketsBtn.classList.add('processing');
+      buyTicketsBtn.disabled = true;
+    }
+    flashBuyButtons.forEach(btn => {
+      btn.classList.add('processing');
+      btn.disabled = true;
+    });
+    showProcessingMessage('Ticket sales are closed. Please wait for the next round.');
+  } else {
+    if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
+    if (buyTicketsBtn) {
+      buyTicketsBtn.classList.remove('processing');
+      buyTicketsBtn.disabled = false;
+    }
+    flashBuyButtons.forEach(btn => {
+      btn.classList.remove('processing');
+      btn.disabled = false;
+    });
+    hideProcessingMessage();
+  }
 }
 
 function startCountdownTimer(startTime) {
@@ -2656,7 +2762,6 @@ function hideProcessingMessage() {
 
 // Jackpot celebration animation function
 function triggerJackpotCelebration() {
-    // Find the timer card (Time Until Draw section)
     const timerCard = document.querySelector('.timer-card');
     if (!timerCard) {
         console.log('Timer card not found for jackpot celebration');
@@ -2664,18 +2769,35 @@ function triggerJackpotCelebration() {
     }
     
     // Remove any existing celebration classes
-    timerCard.classList.remove('jackpot-celebration');
+    timerCard.classList.remove('jackpot-celebration', 'rollover-celebration');
     
     // Add celebration class
     timerCard.classList.add('jackpot-celebration');
     
-    // Remove celebration after 10 seconds (animation runs for 3s infinite, but we stop after 10s)
+    // Remove celebration after 40 seconds (animation runs for 40s infinite, but we stop after 40s)
     setTimeout(() => {
         timerCard.classList.remove('jackpot-celebration');
-    }, 10000);
+    }, 40000);
 }
 
-
+function triggerRolloverCelebration() {
+    const timerCard = document.querySelector('.timer-card');
+    if (!timerCard) {
+        console.log('Timer card not found for rollover celebration');
+        return;
+    }
+    
+    // Remove any existing celebration classes
+    timerCard.classList.remove('jackpot-celebration', 'rollover-celebration');
+    
+    // Add celebration class
+    timerCard.classList.add('rollover-celebration');
+    
+    // Remove celebration after 40 seconds (animation runs for 40s infinite, but we stop after 40s)
+    setTimeout(() => {
+        timerCard.classList.remove('rollover-celebration');
+    }, 40000);
+}
 
 // 🔔 WEBSOCKET FUNCTIONS REMOVED (was causing connection errors)
 // function connectWebSocket() {
@@ -3108,32 +3230,7 @@ function deepBigInt(obj) {
 }
 // --- END deepBigInt helper ---
  
-// --- Add a button to initialize the contract from the frontend ---
-document.addEventListener('DOMContentLoaded', function() {
-  // ... existing code ...
-  // Add contract initialization button if not present
-  if (!document.getElementById('initContractBtn')) {
-    const btn = document.createElement('button');
-    btn.id = 'initContractBtn';
-    btn.textContent = 'Initialize Contract (Debug)';
-    btn.className = 'btn btn-warning';
-    btn.style.margin = '1rem';
-    btn.onclick = async () => {
-      showNotification('Initializing contract...', 'info');
-      try {
-        const result = await initializeSmartContract();
-        if (result.success) {
-          showNotification('Contract initialized! TxHash: ' + result.txHash, 'success');
-        } else {
-          showNotification('Init failed: ' + result.error, 'error');
-        }
-      } catch (e) {
-        showNotification('Init error: ' + e.message, 'error');
-      }
-    };
-    document.body.prepend(btn);
-  }
-});
+// --- Debug button removed ---
 
 // Remove service worker registration if present
 if ('serviceWorker' in navigator) {
@@ -3170,26 +3267,111 @@ function syncWinnersToTrackerPage() {
     }
 }
 
+// Function to refresh Detailed Winners History if it's open
+function refreshDetailedWinnersHistory() {
+    const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
+    console.log('🔍 Checking if Detailed Winners History is open...');
+    console.log('🔍 Spreadsheet section:', spreadsheetSection);
+    console.log('🔍 Display style:', spreadsheetSection?.style.display);
+    
+    // Check if there's an active search - if so, don't refresh
+    const searchInput = document.getElementById('winners-search');
+    const currentSearchTerm = searchInput ? searchInput.value.trim() : '';
+    
+    if (currentSearchTerm) {
+        console.log('🔍 Active search detected, skipping automatic refresh to preserve search results');
+        return;
+    }
+    
+    if (spreadsheetSection && spreadsheetSection.style.display !== 'none') {
+        console.log('🔄 Auto-refreshing Detailed Winners History...');
+        
+        // Force fetch fresh data from backend
+        fetchAPI('/api/lottery/winners').then(response => {
+            if (response.success) {
+                console.log('📊 Fresh winners data from backend:', response);
+                
+                // Process the fresh data
+                let flatHistoricalWinners = [];
+                if (response.historicalWinners && Array.isArray(response.historicalWinners)) {
+                    console.log('🔍 Processing fresh historical winners structure...');
+                    response.historicalWinners.forEach(round => {
+                        if (round.winners && Array.isArray(round.winners)) {
+                            round.winners.forEach(winner => {
+                                flatHistoricalWinners.push({
+                                    ...winner,
+                                    roundNumber: round.roundNumber,
+                                    timestamp: round.drawDate || winner.claimedAt,
+                                    txHash: winner.transactionId,
+                                    amountADA: winner.amount
+                                });
+                            });
+                        }
+                    });
+                    console.log('🔍 Fresh flattened historical winners:', flatHistoricalWinners);
+                }
+                
+                // Update global data
+                window.flatHistoricalWinners = flatHistoricalWinners;
+                
+                // Get current month winners only
+                const currentMonthWinners = filterWinnersByCurrentMonth(flatHistoricalWinners);
+                console.log('📊 Current month winners after filtering:', currentMonthWinners.length);
+                
+                populateWinnersSpreadsheet(currentMonthWinners);
+            }
+        }).catch(error => {
+            console.error('❌ Error fetching fresh winners data:', error);
+            
+            // Fallback to existing data
+            let allWinners = [];
+            if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+                allWinners = window.flatHistoricalWinners;
+                console.log('📊 Using existing flatHistoricalWinners:', allWinners.length, 'winners');
+            } else {
+                // Try to get from localStorage
+                const stored = localStorage.getItem('nikepigWinnersData');
+                if (stored) {
+                    const winnersData = JSON.parse(stored);
+                    allWinners = winnersData.current || [];
+                    console.log('📊 Using localStorage data:', allWinners.length, 'winners');
+                }
+            }
+            
+            console.log('📊 Total winners before filtering:', allWinners.length);
+            
+            // Filter to current month only
+            const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+            console.log('📊 Current month winners after filtering:', currentMonthWinners.length);
+            
+            populateWinnersSpreadsheet(currentMonthWinners);
+        });
+    } else {
+        console.log('📊 Detailed Winners History is not open, skipping refresh');
+    }
+}
+
 // Function to save winners data to localStorage for lottery-winners page access
 function saveWinnersToLocalStorage() {
     try {
         // Use only flatHistoricalWinners to prevent duplicates
         const allWinners = window.flatHistoricalWinners || [];
         
-        // Remove duplicates based on round number and transaction ID
+        // Remove duplicates based on round number, transaction ID, and position
         const uniqueWinners = [];
         const seenCombinations = new Set();
         
         allWinners.forEach(winner => {
             const roundNumber = winner.roundNumber || '';
             const txId = winner.transactionId || winner.txId || winner.txHash || '';
-            const combination = `${roundNumber}-${txId}`;
+            const position = winner.position || 1;
+            const combination = `${roundNumber}-${txId}-${position}`;
             
             if (!seenCombinations.has(combination)) {
                 seenCombinations.add(combination);
                 uniqueWinners.push(winner);
             } else {
-                console.log('🔄 Skipping duplicate winner from same round:', winner);
+                console.log('🔄 Skipping duplicate winner from same round and position:', winner);
             }
         });
         
@@ -3214,7 +3396,7 @@ function toggleWinnersSpreadsheet() {
     
     if (spreadsheetSection.style.display === 'none') {
         spreadsheetSection.style.display = 'block';
-        toggleBtn.textContent = 'View Less';
+        toggleBtn.textContent = 'Weekly Results';
         
         // Get current month winners only
         let allWinners = [];
@@ -3234,7 +3416,7 @@ function toggleWinnersSpreadsheet() {
         populateWinnersSpreadsheet(currentMonthWinners);
     } else {
         spreadsheetSection.style.display = 'none';
-        toggleBtn.textContent = 'View All';
+        toggleBtn.textContent = 'Monthly Results';
     }
 }
 
@@ -3244,13 +3426,23 @@ function filterWinnersByCurrentMonth(winners) {
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     
-    return winners.filter(winner => {
+    console.log('📅 Filtering winners by current month:', currentMonth + 1, currentYear);
+    console.log('📅 Total winners to filter:', winners.length);
+    
+    const filteredWinners = winners.filter(winner => {
         const winnerDate = new Date(winner.timestamp || winner.claimedAt || winner.date);
         const winnerMonth = winnerDate.getMonth();
         const winnerYear = winnerDate.getFullYear();
         
-        return winnerMonth === currentMonth && winnerYear === currentYear;
+        const isCurrentMonth = winnerMonth === currentMonth && winnerYear === currentYear;
+        
+        console.log(`📅 Winner date: ${winnerDate.toISOString()}, Month: ${winnerMonth + 1}, Year: ${winnerYear}, Is current month: ${isCurrentMonth}`);
+        
+        return isCurrentMonth;
     });
+    
+    console.log('📅 Winners after current month filter:', filteredWinners.length);
+    return filteredWinners;
 }
 
 // Function to populate winners spreadsheet
@@ -3267,20 +3459,21 @@ function populateWinnersSpreadsheet(winners) {
         return;
     }
     
-    // Remove duplicates based on round number and transaction ID
+    // Remove duplicates based on round number, transaction ID, and position
     const uniqueWinners = [];
     const seenCombinations = new Set();
     
     winners.forEach(winner => {
         const roundNumber = winner.roundNumber || '';
         const txId = winner.transactionId || winner.txId || winner.txHash || '';
-        const combination = `${roundNumber}-${txId}`;
+        const position = winner.position || 1;
+        const combination = `${roundNumber}-${txId}-${position}`;
         
         if (!seenCombinations.has(combination)) {
             seenCombinations.add(combination);
             uniqueWinners.push(winner);
         } else {
-            console.log('🔄 Skipping duplicate winner from same round:', winner);
+            console.log('🔄 Skipping duplicate winner from same round and position:', winner);
         }
     });
     
@@ -3326,6 +3519,10 @@ function displayWinnersPage(pageIndex) {
         const txId = firstWinner.transactionId || firstWinner.txId || firstWinner.txHash || '';
         const fullTxId = txId;
         
+        // Debug: Log the round group
+        console.log(`📦 Round box for ${formattedRoundDate}:`, roundGroup);
+        console.log(`📦 Number of winners in this round:`, roundGroup.length);
+        
         // Create the round box
         const roundBox = document.createElement('tr');
         roundBox.className = 'winner-round-box-row';
@@ -3346,20 +3543,24 @@ function displayWinnersPage(pageIndex) {
                                     const tokenAmounts = [];
                                     for (const [token, amount] of Object.entries(winner.prizeAmount)) {
                                         if (amount > 0) {
-                                            tokenAmounts.push(`<span class=\"token-amount\">${amount} ${token}</span>`);
+                                            const formattedAmount = parseFloat(amount).toFixed(2);
+                                            tokenAmounts.push(`<span class=\"token-amount\">${formattedAmount} ${token}</span>`);
                                         }
                                     }
                                     prizeAmountText = tokenAmounts.join('<span class=\"token-separator\"> • </span>');
                                 } else {
-                                    prizeAmountText = `<span class=\"token-amount\">${winner.prizeAmount} ADA</span>`;
+                                    const formattedAmount = parseFloat(winner.prizeAmount).toFixed(2);
+                                    prizeAmountText = `<span class=\"token-amount\">${formattedAmount} ADA</span>`;
                                 }
                             } else if (winner.amountADA) {
-                                prizeAmountText = `<span class=\"token-amount\">${winner.amountADA} ADA</span>`;
+                                const formattedAmount = parseFloat(winner.amountADA).toFixed(2);
+                                prizeAmountText = `<span class=\"token-amount\">${formattedAmount} ADA</span>`;
                             } else if (winner.amount) {
-                                prizeAmountText = `<span class=\"token-amount\">${winner.amount} ADA</span>`;
+                                const formattedAmount = parseFloat(winner.amount).toFixed(2);
+                                prizeAmountText = `<span class=\"token-amount\">${formattedAmount} ADA</span>`;
                             }
                             const address = winner.winnerAddress || winner.address || '';
-                            const shortAddress = address.length > 20 ? address.substring(0, 10) + '...' + address.substring(address.length - 10) : address;
+                            const shortAddress = address.length > 20 ? address.substring(0, 4) + '....' + address.substring(address.length - 4) : address;
                             return `
                                 <div class=\"winner-round-winner\">
                                     <span class=\"winner-address\" title=\"${address}\">${shortAddress}</span>
@@ -3386,9 +3587,24 @@ function groupWinnersByRound(winners) {
     const grouped = [];
     const roundGroups = new Map();
     
+    console.log('🔄 Grouping winners by round...');
+    console.log('🔄 Total winners to group:', winners.length);
+    
     winners.forEach(winner => {
         const timestamp = winner.timestamp || winner.claimedAt || winner.date;
-        const roundKey = new Date(timestamp).toISOString().split('T')[0]; // Use date as round key
+        const roundNumber = winner.roundNumber;
+        
+        // Use roundNumber if available, otherwise use timestamp with hour precision
+        let roundKey;
+        if (roundNumber) {
+            roundKey = `round-${roundNumber}`;
+        } else {
+            // Use timestamp with hour precision to group by hour
+            const date = new Date(timestamp);
+            roundKey = date.toISOString().split(':')[0]; // YYYY-MM-DDTHH
+        }
+        
+        console.log(`🔄 Winner timestamp: ${timestamp}, Round number: ${roundNumber}, Round key: ${roundKey}`);
         
         if (!roundGroups.has(roundKey)) {
             roundGroups.set(roundKey, []);
@@ -3396,10 +3612,26 @@ function groupWinnersByRound(winners) {
         roundGroups.get(roundKey).push(winner);
     });
     
-    // Convert to array and sort by date (newest first)
+    console.log('🔄 Round groups created:', roundGroups.size);
+    console.log('🔄 Round keys:', Array.from(roundGroups.keys()));
+    
+    // Convert to array and sort by round number or timestamp (newest first)
     const sortedRounds = Array.from(roundGroups.entries()).sort((a, b) => {
-        return new Date(b[0]) - new Date(a[0]);
+        const keyA = a[0];
+        const keyB = b[0];
+        
+        // If both are round numbers, sort numerically
+        if (keyA.startsWith('round-') && keyB.startsWith('round-')) {
+            const roundA = parseInt(keyA.replace('round-', ''));
+            const roundB = parseInt(keyB.replace('round-', ''));
+            return roundB - roundA; // Newest first
+        }
+        
+        // Otherwise sort by timestamp
+        return new Date(keyB) - new Date(keyA);
     });
+    
+    console.log('🔄 Sorted rounds:', sortedRounds.map(([date, winners]) => `${date}: ${winners.length} winners`));
     
     sortedRounds.forEach(([date, roundWinners]) => {
         // Sort winners within round by position (1st, 2nd, 3rd)
@@ -3409,10 +3641,16 @@ function groupWinnersByRound(winners) {
             return posA - posB;
         });
         
+        // Debug: Log the round winners before slicing
+        console.log(`📊 Round ${date} has ${roundWinners.length} winners:`, roundWinners);
+        
         // Ensure we have exactly 3 winners per round
         // If we have fewer than 3, we'll show what we have
         // If we have more than 3, we'll take the first 3 (shouldn't happen in normal operation)
         const roundWinnersForDisplay = roundWinners.slice(0, 3);
+        
+        // Debug: Log the final display winners
+        console.log(`📊 Round ${date} will display ${roundWinnersForDisplay.length} winners:`, roundWinnersForDisplay);
         
         // Only add rounds that have at least 1 winner
         if (roundWinnersForDisplay.length > 0) {
@@ -3420,6 +3658,7 @@ function groupWinnersByRound(winners) {
         }
     });
     
+    console.log('🔄 Final grouped rounds:', grouped.length);
     return grouped;
 }
 
@@ -3629,6 +3868,8 @@ function clearWinnersSearch() {
         searchInput.value = '';
     }
     
+    console.log('🔄 Clearing search and restoring all results...');
+    
     // Get the original winners data from flatHistoricalWinners and repopulate with current month only
     let allWinners = [];
     if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
@@ -3645,6 +3886,9 @@ function clearWinnersSearch() {
     // Filter to current month only
     const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
     populateWinnersSpreadsheet(currentMonthWinners);
+    
+    // Resume automatic refresh after clearing search
+    console.log('🔄 Search cleared, automatic refresh resumed');
 }
 
 // Function to format transaction ID for spreadsheet
