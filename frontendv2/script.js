@@ -779,16 +779,18 @@ async function refreshStats() {
           window.previousSalesStatus = true;
         }
         
+        // 🎯 NEW: Track current processing status for countdown logic
+        window.currentProcessingStatus = stats.processingStatus;
+        
         if (stats.processingStatus) {
           console.log('🔄 Processing status:', stats.processingStatus);
           
-          // Update sales status based on processing status
-          if (stats.processingStatus === 'rollover') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing Rollover';
-            if (countdownDisplay) countdownDisplay.textContent = 'Rollover';
+          // FRONTEND ONLY: Let frontend control status display based on participant count
+          // Backend only controls processing state, not status display
+          if (stats.processingStatus === 'rollover' || stats.processingStatus === 'jackpot') {
             // Stop countdown timer during processing
             stopCountdownTimer();
-            // Darken buttons and prevent clicks during rollover
+            // Darken buttons and prevent clicks during processing
             if (buyTicketsBtn) {
               buyTicketsBtn.classList.add('processing');
             }
@@ -798,36 +800,32 @@ async function refreshStats() {
             // Show processing message
             showProcessingMessage('Ticket sales are paused while we process the results. Please wait.');
             
-            // Show rollover notification when status changes
-            if (window.previousProcessingStatus !== 'rollover') {
-              showNotification('↪️ Rollover', 'info');
-              // Trigger rollover celebration animation
-              triggerRolloverCelebration();
+            // FRONTEND DETERMINES STATUS: Use participant count, not backend status
+            const participantCount = window.currentParticipantCount || 0;
+            if (participantCount >= 4) {
+              if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
+              
+              // Show jackpot notification when status changes
+              if (window.previousProcessingStatus !== 'jackpot') {
+                showNotification('🏆 Jackpot', 'success');
+                triggerJackpotCelebration();
+                setTimeout(() => {
+                  refreshWinners();
+                }, 3000);
+              }
+            } else {
+              if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing Rollover';
+              
+              // Show rollover notification when status changes
+              if (window.previousProcessingStatus !== 'rollover') {
+                showNotification('↪️ Rollover', 'info');
+                triggerRolloverCelebration();
+              }
             }
-          } else if (stats.processingStatus === 'jackpot') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
-            if (countdownDisplay) countdownDisplay.textContent = 'Jackpot!';
-            // Stop countdown timer during processing
-            stopCountdownTimer();
-            // Darken buttons and prevent clicks during jackpot
-            if (buyTicketsBtn) {
-              buyTicketsBtn.classList.add('processing');
-            }
-            flashBuyButtons.forEach(btn => {
-              btn.classList.add('processing');
-            });
-            // Show processing message
-            showProcessingMessage('Ticket sales are paused while we process the results. Please wait.');
             
-            // Show jackpot notification when status changes
-            if (window.previousProcessingStatus !== 'jackpot') {
-              showNotification('🏆 Jackpot', 'success');
-              // Trigger jackpot celebration animation
-              triggerJackpotCelebration();
-              // Refresh winners after jackpot notification
-              setTimeout(() => {
-                refreshWinners();
-              }, 3000); // Wait 3 seconds for backend to process
+            // 🎯 CRITICAL: Force updateCountdown to run immediately to set correct status
+            if (stats.processingStatus === 'rollover' || stats.processingStatus === 'jackpot') {
+              updateCountdown();
             }
           } else if (stats.processingStatus === 'idle') {
             if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
@@ -861,7 +859,7 @@ async function refreshStats() {
           window.previousProcessingStatus = stats.processingStatus;
         }
         
-        // 🎯 NEW: Store participant count for early status determination
+        // 🎯 SIMPLE: Store participant count for status determination
         if (stats.participants) {
           window.currentParticipantCount = stats.participants.length;
         }
@@ -1022,12 +1020,19 @@ async function refreshWinners() {
         // Auto-refresh Detailed Winners History if it's currently open
         refreshDetailedWinnersHistory();
         
-        // Set up periodic refresh for Detailed Winners History (every 10 seconds for testing)
+        // Set up periodic refresh for Detailed Winners History (every 30 seconds - safer interval)
         if (!window.detailedWinnersRefreshInterval) {
             window.detailedWinnersRefreshInterval = setInterval(() => {
                 console.log('🔄 Periodic refresh of Detailed Winners History...');
+                
+                // Check if we have existing data before refreshing
+                if (!window.flatHistoricalWinners || window.flatHistoricalWinners.length === 0) {
+                    console.log('⚠️ No existing winners data, skipping refresh to prevent data loss');
+                    return;
+                }
+                
                 refreshDetailedWinnersHistory();
-            }, 10000); // 10 seconds for testing
+            }, 30000); // 30 seconds - safer interval
         }
 
         // --- Historical Winners (Scroll Container) ---
@@ -2062,9 +2067,14 @@ function setupEventListeners() {
     
 
     
-    // Force cache clear and reload function
+    // Force cache clear and reload function (SAFE VERSION - preserves winners data)
     window.forceRefresh = function() {
         console.log('🔄 Force clearing cache and reloading...');
+        
+        // Save winners data before clearing
+        const winnersData = localStorage.getItem('nikepigWinnersData');
+        const flatWinners = window.flatHistoricalWinners;
+        
         if ('caches' in window) {
             caches.keys().then(names => {
                 names.forEach(name => {
@@ -2072,7 +2082,18 @@ function setupEventListeners() {
                 });
             });
         }
+        
+        // Clear localStorage but preserve winners data
         localStorage.clear();
+        
+        // Restore winners data immediately
+        if (winnersData) {
+            localStorage.setItem('nikepigWinnersData', winnersData);
+        }
+        if (flatWinners) {
+            window.flatHistoricalWinners = flatWinners;
+        }
+        
         location.reload(true);
     };
   
@@ -2650,22 +2671,25 @@ function updateCountdown() {
   const salesCloseTime = 20 * 1000; // 20 seconds in milliseconds
   const timeUntilSalesClose = remaining - salesCloseTime;
   
-  // 🎯 NEW: Determine early status announcement
+  // 🎯 NEW: Determine status message and sales state
   let statusMessage = '';
   let isSalesClosed = false;
   
   if (remaining <= 0) {
-    // Countdown reached 0 - show final status
+    // Countdown reached 0 - SIMPLE LOGIC: participant count determines status
     const participantCount = window.currentParticipantCount || 0;
-    if (participantCount < 4) {
-      statusMessage = 'Rollover';
-    } else {
+    console.log('🎯 Countdown reached 0, participant count:', participantCount);
+    
+    // SIMPLE RULE: 4+ participants = Jackpot, <4 participants = Rollover
+    if (participantCount >= 4) {
       statusMessage = 'Jackpot!';
+    } else {
+      statusMessage = 'Rollover';
     }
     isSalesClosed = true;
   } else if (timeUntilSalesClose <= 0) {
-    // Sales closed but countdown still running
-    statusMessage = 'Sales Closed';
+    // Sales closed but countdown still running - show countdown, not "Sales Closed"
+    statusMessage = `${Math.floor(remaining / 60000)}:${Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0')}`;
     isSalesClosed = true;
   } else {
     // Normal countdown
@@ -2677,8 +2701,10 @@ function updateCountdown() {
   const leftCountdownTimer = document.getElementById('countdown-timer-display');
   if (leftCountdownTimer) leftCountdownTimer.textContent = statusMessage;
   
-  // 🎯 NEW: Update sales status and button states
-  updateSalesStatusForCountdown(isSalesClosed);
+  // 🎯 SIMPLE: Update sales status and button states (only if not processing)
+  if (window.currentProcessingStatus !== 'rollover' && window.currentProcessingStatus !== 'jackpot') {
+    updateSalesStatusForCountdown(isSalesClosed);
+  }
 }
 
 // 🎯 NEW: Function to update sales status based on countdown
@@ -2774,7 +2800,7 @@ function triggerJackpotCelebration() {
     // Add celebration class
     timerCard.classList.add('jackpot-celebration');
     
-    // Remove celebration after 40 seconds (animation runs for 40s infinite, but we stop after 40s)
+    // Remove celebration after animation completes (40s)
     setTimeout(() => {
         timerCard.classList.remove('jackpot-celebration');
     }, 40000);
@@ -2793,10 +2819,10 @@ function triggerRolloverCelebration() {
     // Add celebration class
     timerCard.classList.add('rollover-celebration');
     
-    // Remove celebration after 40 seconds (animation runs for 40s infinite, but we stop after 40s)
+    // Remove celebration after animation completes (15s)
     setTimeout(() => {
         timerCard.classList.remove('rollover-celebration');
-    }, 40000);
+    }, 15000);
 }
 
 // 🔔 WEBSOCKET FUNCTIONS REMOVED (was causing connection errors)
@@ -3329,13 +3355,25 @@ function refreshDetailedWinnersHistory() {
                 allWinners = window.flatHistoricalWinners;
                 console.log('📊 Using existing flatHistoricalWinners:', allWinners.length, 'winners');
             } else {
-                // Try to get from localStorage
-                const stored = localStorage.getItem('nikepigWinnersData');
-                if (stored) {
-                    const winnersData = JSON.parse(stored);
-                    allWinners = winnersData.current || [];
-                    console.log('📊 Using localStorage data:', allWinners.length, 'winners');
-                }
+                        // Try to get from localStorage
+        const stored = localStorage.getItem('nikepigWinnersData');
+        if (stored) {
+            const winnersData = JSON.parse(stored);
+            allWinners = winnersData.current || [];
+            console.log('📊 Using localStorage data:', allWinners.length, 'winners');
+        } else {
+            // Try backup data if main data is missing
+            const backupStored = localStorage.getItem('nikepigWinnersDataBackup');
+            if (backupStored) {
+                const backupData = JSON.parse(backupStored);
+                allWinners = backupData.current || [];
+                console.log('📊 Using backup localStorage data:', allWinners.length, 'winners');
+                
+                // Restore main data from backup
+                localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: allWinners }));
+                console.log('💾 Restored main data from backup');
+            }
+        }
             }
             
             console.log('📊 Total winners before filtering:', allWinners.length);
@@ -3383,6 +3421,15 @@ function saveWinnersToLocalStorage() {
         // Save current month winners to localStorage
         localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: currentMonthWinners }));
         console.log(`💾 Saved ${currentMonthWinners.length} current month winners to localStorage`);
+        
+        // Also save a backup copy with timestamp
+        const backupData = {
+            current: currentMonthWinners,
+            timestamp: Date.now(),
+            backup: true
+        };
+        localStorage.setItem('nikepigWinnersDataBackup', JSON.stringify(backupData));
+        console.log('💾 Created backup of winners data');
         
     } catch (error) {
         console.error('❌ Error saving winners to localStorage:', error);
