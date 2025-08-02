@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v2.56.0-countdown-display-fix';
+const CACHE_NAME = 'nikepig-lottery-v2.67.0-data-persistence-fix';
 const urlsToCache = [
   '/',
   '/index.html',

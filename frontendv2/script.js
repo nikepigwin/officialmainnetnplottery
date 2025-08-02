@@ -779,102 +779,62 @@ async function refreshStats() {
           window.previousSalesStatus = true;
         }
         
-        // 🎯 NEW: Track current processing status for countdown logic
-        window.currentProcessingStatus = stats.processingStatus;
+        // 🎯 FRONTEND ONLY: Ignore backend processing status completely
+        // We will handle all status display purely based on participant count
         
-        if (stats.processingStatus) {
-          console.log('🔄 Processing status:', stats.processingStatus);
+        // 🎯 FRONTEND ONLY: Check if countdown has reached 0 to trigger status display
+        if (roundStartTime) {
+          const now = Date.now();
+          const elapsed = now - roundStartTime;
+          const remaining = Math.max(0, roundDuration - elapsed);
           
-          // FRONTEND ONLY: Let frontend control status display based on participant count
-          // Backend only controls processing state, not status display
-          if (stats.processingStatus === 'rollover' || stats.processingStatus === 'jackpot') {
-            // Stop countdown timer during processing
-            stopCountdownTimer();
-            // Darken buttons and prevent clicks during processing
-            if (buyTicketsBtn) {
-              buyTicketsBtn.classList.add('processing');
-            }
-            flashBuyButtons.forEach(btn => {
-              btn.classList.add('processing');
-            });
-            // Show processing message
-            showProcessingMessage('Ticket sales are paused while we process the results. Please wait.');
-            
-            // FRONTEND DETERMINES STATUS: Use participant count, not backend status
-            const participantCount = window.currentParticipantCount || 0;
-            if (participantCount >= 4) {
-              if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
-              
-              // Show jackpot notification when status changes
-              if (window.previousProcessingStatus !== 'jackpot') {
-                showNotification('🏆 Jackpot', 'success');
-                triggerJackpotCelebration();
-                setTimeout(() => {
-                  refreshWinners();
-                }, 3000);
-              }
-            } else {
-              if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing Rollover';
-              
-              // Show rollover notification when status changes
-              if (window.previousProcessingStatus !== 'rollover') {
-                showNotification('↪️ Rollover', 'info');
-                triggerRolloverCelebration();
-              }
-            }
-            
-            // 🎯 CRITICAL: Force updateCountdown to run immediately to set correct status
-            if (stats.processingStatus === 'rollover' || stats.processingStatus === 'jackpot') {
-              updateCountdown();
-            }
-          } else if (stats.processingStatus === 'idle') {
-            if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
-            if (countdownDisplay) {
-              // Restore normal countdown if we have round start time
-              if (stats.roundStartTime) {
-                startCountdownTimer(stats.roundStartTime);
-              }
-            }
-            // Remove processing state when idle
-            if (buyTicketsBtn) {
-              buyTicketsBtn.classList.remove('processing');
-            }
-            flashBuyButtons.forEach(btn => {
-              btn.classList.remove('processing');
-            });
-            // Hide processing message
-            hideProcessingMessage();
-            
-            // Show new round notification when transitioning from processing to idle
-            if (window.previousProcessingStatus === 'rollover' || window.previousProcessingStatus === 'jackpot') {
-              showNotification('🎉 New Round', 'success');
-              // Refresh winners immediately when new round starts (after successful distribution)
-              setTimeout(() => {
-                refreshWinners();
-              }, 2000); // Wait 2 seconds for backend to update
-            }
+          if (remaining <= 0) {
+            // Countdown reached 0 - show status based on participant count
+            console.log('🎯 Countdown reached 0, showing frontend status');
+            updateCountdown();
           }
-          
-          // Update previous processing status
-          window.previousProcessingStatus = stats.processingStatus;
         }
         
-        // 🎯 SIMPLE: Store participant count for status determination
-        if (stats.participants) {
-          window.currentParticipantCount = stats.participants.length;
+        // 🎯 BULLETPROOF: Store participant count for status determination
+        if (stats.totalParticipants !== undefined) {
+          window.currentParticipantCount = stats.totalParticipants;
+          console.log('🎯 BULLETPROOF: Updated participant count from totalParticipants:', window.currentParticipantCount);
+        } else {
+          console.log('⚠️ No totalParticipants in stats, keeping existing count:', window.currentParticipantCount);
         }
+        
+        // 🎯 BULLETPROOF: Store round number for notification tracking
+        if (stats.roundNumber !== undefined) {
+          window.currentRoundNumber = stats.roundNumber;
+          console.log('🎯 BULLETPROOF: Updated round number:', window.currentRoundNumber);
+        } else {
+          console.log('⚠️ No roundNumber in stats, keeping existing round:', window.currentRoundNumber);
+        }
+        
+        // 🎯 BULLETPROOF: Get current participant count
+        const participantCount = window.currentParticipantCount || 0;
+        console.log('🎯 BULLETPROOF: Current participant count for status:', participantCount);
+        
+        // 🎯 FRONTEND ONLY: No backend interference - let countdown handle everything
         
         // Handle sales status changes
         const currentSalesStatus = stats.salesOpen;
         if (window.previousSalesStatus !== currentSalesStatus) {
           if (currentSalesStatus) {
             showNotification('🎉 New Round', 'success');
+            
+            // 🎯 CLEAR OLD NOTIFICATION FLAGS: New round started, clear previous notification flags
+            const currentRound = stats.roundNumber || 1;
+            const previousRound = currentRound - 1;
+            if (previousRound > 0) {
+              sessionStorage.removeItem(`notification_shown_round_${previousRound}`);
+              console.log('🧹 Cleared notification flag for previous round:', previousRound);
+            }
           }
           window.previousSalesStatus = currentSalesStatus;
         }
         
-        // Update button states based on sales status
-        updateButtonStates(currentSalesStatus);
+        // Let updateCountdown handle all button states
         
         console.log('✅ Stats updated successfully');
         if (arguments.length > 0) {
@@ -1020,7 +980,7 @@ async function refreshWinners() {
         // Auto-refresh Detailed Winners History if it's currently open
         refreshDetailedWinnersHistory();
         
-        // Set up periodic refresh for Detailed Winners History (every 30 seconds - safer interval)
+        // Set up periodic refresh for Detailed Winners History (every 10 minutes - much safer interval)
         if (!window.detailedWinnersRefreshInterval) {
             window.detailedWinnersRefreshInterval = setInterval(() => {
                 console.log('🔄 Periodic refresh of Detailed Winners History...');
@@ -1031,8 +991,14 @@ async function refreshWinners() {
                     return;
                 }
                 
-                refreshDetailedWinnersHistory();
-            }, 30000); // 30 seconds - safer interval
+                // Only refresh if Detailed Winners History is actually open
+                const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
+                if (spreadsheetSection && spreadsheetSection.style.display !== 'none') {
+                    refreshDetailedWinnersHistory();
+                } else {
+                    console.log('📊 Detailed Winners History not open, skipping refresh');
+                }
+            }, 600000); // 10 minutes - much safer interval to prevent data loss
         }
 
         // --- Historical Winners (Scroll Container) ---
@@ -2667,24 +2633,61 @@ function updateCountdown() {
   const elapsed = now - roundStartTime;
   const remaining = Math.max(0, roundDuration - elapsed);
   
-  // 🎯 NEW: Early sales closure (20 seconds before countdown reaches 0)
+  // 🎯 SIMPLE: Early sales closure (20 seconds before countdown reaches 0)
   const salesCloseTime = 20 * 1000; // 20 seconds in milliseconds
   const timeUntilSalesClose = remaining - salesCloseTime;
   
-  // 🎯 NEW: Determine status message and sales state
+  // 🎯 BULLETPROOF FRONTEND ONLY: Determine status message and sales state
   let statusMessage = '';
   let isSalesClosed = false;
   
+  // 🎯 BULLETPROOF: Check if countdown has reached 0
   if (remaining <= 0) {
-    // Countdown reached 0 - SIMPLE LOGIC: participant count determines status
+    // Countdown reached 0 - BULLETPROOF: participant count determines status
     const participantCount = window.currentParticipantCount || 0;
-    console.log('🎯 Countdown reached 0, participant count:', participantCount);
+    console.log('🎯 BULLETPROOF: Countdown reached 0, participant count:', participantCount);
     
-    // SIMPLE RULE: 4+ participants = Jackpot, <4 participants = Rollover
+    // 🎯 PREVENT MULTIPLE NOTIFICATIONS: Check if we already showed notification for this round
+    const currentRound = window.currentRoundNumber || 1;
+    const notificationKey = `notification_shown_round_${currentRound}`;
+    const notificationAlreadyShown = sessionStorage.getItem(notificationKey);
+    
+    // BULLETPROOF RULE: 4+ participants = Jackpot, <4 participants = Rollover
     if (participantCount >= 4) {
       statusMessage = 'Jackpot!';
+      console.log('🎯 BULLETPROOF: JACKPOT! (participant count >= 4)');
+      
+      // Update lottery status display
+      const salesStatusDisplay = document.getElementById('sales-status-display');
+      if (salesStatusDisplay) salesStatusDisplay.textContent = 'Preparing Jackpot';
+      
+      // 🎯 SHOW NOTIFICATION ONLY ONCE PER ROUND
+      if (!notificationAlreadyShown) {
+        showNotification('🏆 Jackpot', 'success');
+        triggerJackpotCelebration();
+        sessionStorage.setItem(notificationKey, 'jackpot');
+        console.log('🎉 Jackpot notification shown for round', currentRound);
+      } else {
+        console.log('🎉 Jackpot notification already shown for round', currentRound);
+      }
+      
     } else {
       statusMessage = 'Rollover';
+      console.log('🎯 BULLETPROOF: ROLLOVER (participant count < 4)');
+      
+      // Update lottery status display
+      const salesStatusDisplay = document.getElementById('sales-status-display');
+      if (salesStatusDisplay) salesStatusDisplay.textContent = 'Processing Rollover';
+      
+      // 🎯 SHOW NOTIFICATION ONLY ONCE PER ROUND
+      if (!notificationAlreadyShown) {
+        showNotification('↪️ Rollover', 'info');
+        triggerRolloverCelebration();
+        sessionStorage.setItem(notificationKey, 'rollover');
+        console.log('🔄 Rollover notification shown for round', currentRound);
+      } else {
+        console.log('🔄 Rollover notification already shown for round', currentRound);
+      }
     }
     isSalesClosed = true;
   } else if (timeUntilSalesClose <= 0) {
@@ -2697,24 +2700,20 @@ function updateCountdown() {
     isSalesClosed = false;
   }
   
-  // 🎯 UPDATE LEFT COLUMN: Connect countdown timer to left column element
+  // 🎯 BULLETPROOF: UPDATE COUNTDOWN DISPLAY
   const leftCountdownTimer = document.getElementById('countdown-timer-display');
   if (leftCountdownTimer) leftCountdownTimer.textContent = statusMessage;
   
-  // 🎯 SIMPLE: Update sales status and button states (only if not processing)
-  if (window.currentProcessingStatus !== 'rollover' && window.currentProcessingStatus !== 'jackpot') {
-    updateSalesStatusForCountdown(isSalesClosed);
-  }
+  // 🎯 UPDATE BUTTON STATES ONLY (don't override lottery status)
+  updateButtonStatesOnly(isSalesClosed);
 }
 
-// 🎯 NEW: Function to update sales status based on countdown
-function updateSalesStatusForCountdown(salesClosed) {
-  const salesStatusDisplay = document.getElementById('sales-status-display');
+// 🎯 SIMPLE: Function to update button states only (don't touch sales status display)
+function updateButtonStatesOnly(salesClosed) {
   const buyTicketsBtn = document.getElementById('buy-tickets');
   const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
   
   if (salesClosed) {
-    if (salesStatusDisplay) salesStatusDisplay.textContent = 'Closed';
     if (buyTicketsBtn) {
       buyTicketsBtn.classList.add('processing');
       buyTicketsBtn.disabled = true;
@@ -2725,7 +2724,6 @@ function updateSalesStatusForCountdown(salesClosed) {
     });
     showProcessingMessage('Ticket sales are closed. Please wait for the next round.');
   } else {
-    if (salesStatusDisplay) salesStatusDisplay.textContent = 'Open';
     if (buyTicketsBtn) {
       buyTicketsBtn.classList.remove('processing');
       buyTicketsBtn.disabled = false;
@@ -3312,6 +3310,13 @@ function refreshDetailedWinnersHistory() {
     if (spreadsheetSection && spreadsheetSection.style.display !== 'none') {
         console.log('🔄 Auto-refreshing Detailed Winners History...');
         
+        // Check if we have existing data first
+        let existingData = false;
+        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+            existingData = true;
+            console.log('📊 Have existing data, will preserve if backend fails');
+        }
+        
         // Force fetch fresh data from backend
         fetchAPI('/api/lottery/winners').then(response => {
             if (response.success) {
@@ -3337,43 +3342,61 @@ function refreshDetailedWinnersHistory() {
                     console.log('🔍 Fresh flattened historical winners:', flatHistoricalWinners);
                 }
                 
-                // Update global data
-                window.flatHistoricalWinners = flatHistoricalWinners;
-                
-                // Get current month winners only
-                const currentMonthWinners = filterWinnersByCurrentMonth(flatHistoricalWinners);
-                console.log('📊 Current month winners after filtering:', currentMonthWinners.length);
-                
-                populateWinnersSpreadsheet(currentMonthWinners);
+                // Only update if we got meaningful data
+                if (flatHistoricalWinners.length > 0) {
+                    // Update global data
+                    window.flatHistoricalWinners = flatHistoricalWinners;
+                    
+                    // Get current month winners only
+                    const currentMonthWinners = filterWinnersByCurrentMonth(flatHistoricalWinners);
+                    console.log('📊 Current month winners after filtering:', currentMonthWinners.length);
+                    
+                    populateWinnersSpreadsheet(currentMonthWinners);
+                    
+                    // Save to localStorage immediately
+                    saveWinnersToLocalStorage();
+                    console.log('✅ Updated with fresh data from backend');
+                } else {
+                    console.log('⚠️ Backend returned empty data, preserving existing data');
+                    
+                    // Preserve existing data instead of overwriting
+                    if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+                        const currentMonthWinners = filterWinnersByCurrentMonth(window.flatHistoricalWinners);
+                        populateWinnersSpreadsheet(currentMonthWinners);
+                        console.log('📊 Preserved existing data:', currentMonthWinners.length, 'winners');
+                    } else {
+                        console.log('⚠️ No existing data to preserve, keeping empty state');
+                    }
+                }
             }
         }).catch(error => {
             console.error('❌ Error fetching fresh winners data:', error);
             
-            // Fallback to existing data
+            // Fallback to existing data - DON'T overwrite if we have good data
             let allWinners = [];
             if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
                 allWinners = window.flatHistoricalWinners;
                 console.log('📊 Using existing flatHistoricalWinners:', allWinners.length, 'winners');
             } else {
-                        // Try to get from localStorage
-        const stored = localStorage.getItem('nikepigWinnersData');
-        if (stored) {
-            const winnersData = JSON.parse(stored);
-            allWinners = winnersData.current || [];
-            console.log('📊 Using localStorage data:', allWinners.length, 'winners');
-        } else {
-            // Try backup data if main data is missing
-            const backupStored = localStorage.getItem('nikepigWinnersDataBackup');
-            if (backupStored) {
-                const backupData = JSON.parse(backupStored);
-                allWinners = backupData.current || [];
-                console.log('📊 Using backup localStorage data:', allWinners.length, 'winners');
-                
-                // Restore main data from backup
-                localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: allWinners }));
-                console.log('💾 Restored main data from backup');
-            }
-        }
+                // Try to get from localStorage
+                const stored = localStorage.getItem('nikepigWinnersData');
+                if (stored) {
+                    const winnersData = JSON.parse(stored);
+                    allWinners = winnersData.current || [];
+                    console.log('📊 Using localStorage data:', allWinners.length, 'winners');
+                } else {
+                    // Try backup data if main data is missing
+                    const backupStored = localStorage.getItem('nikepigWinnersDataBackup');
+                    if (backupStored) {
+                        const backupData = JSON.parse(backupStored);
+                        allWinners = backupData.current || [];
+                        console.log('📊 Using backup localStorage data:', allWinners.length, 'winners');
+                        
+                        // Restore main data from backup
+                        localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: allWinners }));
+                        console.log('💾 Restored main data from backup');
+                    }
+                }
             }
             
             console.log('📊 Total winners before filtering:', allWinners.length);
@@ -3426,6 +3449,7 @@ function saveWinnersToLocalStorage() {
         const backupData = {
             current: currentMonthWinners,
             timestamp: Date.now(),
+            version: '2.66.0',
             backup: true
         };
         localStorage.setItem('nikepigWinnersDataBackup', JSON.stringify(backupData));

@@ -10,7 +10,17 @@ function normalizeAdaPolicyId(pid: string): string {
 // Debug log for Oak and Deno version
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
-// Global storage for real historical winners
+// Global storage for real historical winners with file persistence
+const WINNERS_FILE = './data/historical_winners.json';
+
+// Ensure data directory exists
+try {
+  Deno.mkdirSync('./data', { recursive: true });
+  console.log('📁 Data directory created/verified');
+} catch (error) {
+  console.log('📁 Data directory already exists');
+}
+
 let historicalWinnersStorage: Array<{
   roundNumber: number;
   winners: Array<{
@@ -26,6 +36,31 @@ let historicalWinnersStorage: Array<{
   totalParticipants: number;
   totalTickets: number;
 }> = [];
+
+// Load existing winners from file on startup
+function loadWinnersFromFile() {
+  try {
+    const data = Deno.readTextFileSync(WINNERS_FILE);
+    historicalWinnersStorage = JSON.parse(data);
+    console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from winners file`);
+  } catch (error) {
+    console.log('📊 No existing winners file, starting fresh');
+    historicalWinnersStorage = [];
+  }
+}
+
+// Save winners to file
+function saveWinnersToFile() {
+  try {
+    Deno.writeTextFileSync(WINNERS_FILE, JSON.stringify(historicalWinnersStorage, null, 2));
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to winners file`);
+  } catch (error) {
+    console.error('❌ Error saving winners to file:', error);
+  }
+}
+
+// Load winners on startup
+loadWinnersFromFile();
 
 // Flag to prevent multiple processing of the same round
 let isProcessingRound = false;
@@ -428,6 +463,9 @@ async function processAutomatedRound() {
           // Add new winner data
           historicalWinnersStorage.push(winnerData);
           console.log(`💾 Saved winners for round ${currentRoundState.roundNumber} to historical storage`);
+          
+          // Save to file immediately for persistence
+          saveWinnersToFile();
           
           // WebSocket notifications removed
           // broadcastNotification(...) - WebSocket functionality disabled
@@ -1591,19 +1629,32 @@ router.get("/api/lottery/winners", async (ctx) => {
     const lotteryState = await getCurrentLotteryState();
     const currentRound = currentRoundState?.roundNumber || 1;
 
-    // Return real historical winners from storage
-    const historicalWinners = historicalWinnersStorage;
+    // Return real historical winners from storage with validation
+    const historicalWinners = historicalWinnersStorage || [];
+    
+    // Validate winners data structure
+    const validatedWinners = historicalWinners.filter(round => {
+      return round && 
+             typeof round.roundNumber === 'number' && 
+             Array.isArray(round.winners) && 
+             round.winners.length > 0;
+    });
     
     console.log(`📊 Winners API called - Current round: ${currentRound}`);
-    console.log(`📊 Historical winners storage:`, historicalWinners);
-    console.log(`📊 Total winners in storage: ${historicalWinners.reduce((sum, round) => sum + round.winners.length, 0)}`);
+    console.log(`📊 Historical winners storage: ${validatedWinners.length} valid rounds`);
+    console.log(`📊 Total winners in storage: ${validatedWinners.reduce((sum, round) => sum + round.winners.length, 0)}`);
 
     ctx.response.body = {
       success: true,
       currentRound: currentRound,
-      historicalWinners: historicalWinners,
-      totalWinners: historicalWinners.reduce((sum, round) => sum + round.winners.length, 0),
-      lastUpdated: new Date().toISOString()
+      historicalWinners: validatedWinners,
+      totalWinners: validatedWinners.reduce((sum, round) => sum + round.winners.length, 0),
+      lastUpdated: new Date().toISOString(),
+      dataIntegrity: {
+        totalRounds: validatedWinners.length,
+        totalWinners: validatedWinners.reduce((sum, round) => sum + round.winners.length, 0),
+        filePersisted: true
+      }
     };
   } catch (error) {
     console.error("Error fetching winners:", error);
