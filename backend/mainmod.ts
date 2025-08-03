@@ -66,7 +66,13 @@ loadWinnersFromFile();
 let isProcessingRound = false;
 
 // Load the actual validator from contract/plutus.json
-const plutusJson = JSON.parse(Deno.readTextFileSync("./contract/plutus.json"));
+let plutusJson;
+try {
+  plutusJson = JSON.parse(Deno.readTextFileSync("./contract/plutus.json"));
+} catch (error) {
+  console.error("❌ Error reading plutus.json:", error);
+  throw new Error("Required contract file plutus.json not found");
+}
 const SCRIPT_VALIDATOR = plutusJson.validators[0].compiledCode;
 
 // Minimal test for fromHex(SCRIPT_VALIDATOR) ///
@@ -208,7 +214,15 @@ app.use(validateInput());
 const BLOCKFROST_URL = 'https://cardano-preview.blockfrost.io/api/v0';
 const BLOCKFROST_API_KEY = 'previewyEaLt5aKLcelODYvUD4Ka8cmT41DurY0';
 // 1. Set SCRIPT_ADDRESS to actual contract address (env var for Render, file for local dev)
-const SCRIPT_ADDRESS = Deno.env.get("SCRIPT_ADDRESS") || Deno.readTextFileSync("./initialize_contract/contract.addr").trim();
+let SCRIPT_ADDRESS = Deno.env.get("SCRIPT_ADDRESS");
+if (!SCRIPT_ADDRESS) {
+  try {
+    SCRIPT_ADDRESS = Deno.readTextFileSync("./initialize_contract/contract.addr").trim();
+  } catch (error) {
+    console.log("⚠️ No SCRIPT_ADDRESS env var and no contract.addr file found, using default");
+    SCRIPT_ADDRESS = "addr_test1qq8ac7qqy0vtulyl7wntmsxc6wex80gvcyjy33qffrhm7sh927ysx5sftuw0dlft05dz3c7revpf7jx0xnlcjz3g69mqkt5dmn";
+  }
+}
 const ADMIN_WALLET_ADDRESS = Deno.env.get("ADMIN_WALLET_ADDRESS");
 // Separate lottery pool wallet for fund storage (better architecture)
 // Updated to use seed-generated wallet address from environment
@@ -2102,16 +2116,21 @@ app.use(router.allowedMethods());
 
 // Add a debug endpoint to inspect plutus.json and compiledCode
 router.get("/api/debug-plutus", (ctx) => {
-  const rawFile = Deno.readTextFileSync("./contract/plutus.json");
-  const parsed = JSON.parse(rawFile);
-  ctx.response.body = {
-    rawLength: rawFile.length,
-    compiledCodeLength: parsed.validators[0].compiledCode.length,
-    compiledCodeStart: parsed.validators[0].compiledCode.slice(0, 100),
-    compiledCodeEnd: parsed.validators[0].compiledCode.slice(-100),
-    hasComma: parsed.validators[0].compiledCode.includes(','),
-    nonHexMatch: parsed.validators[0].compiledCode.match(/[^0-9a-fA-F]/g),
-  };
+  try {
+    const rawFile = Deno.readTextFileSync("./contract/plutus.json");
+    const parsed = JSON.parse(rawFile);
+      ctx.response.body = {
+      rawLength: rawFile.length,
+      compiledCodeLength: parsed.validators[0].compiledCode.length,
+      compiledCodeStart: parsed.validators[0].compiledCode.slice(0, 100),
+      compiledCodeEnd: parsed.validators[0].compiledCode.slice(-100),
+      hasComma: parsed.validators[0].compiledCode.includes(','),
+      nonHexMatch: parsed.validators[0].compiledCode.match(/[^0-9a-fA-F]/g),
+    };
+  } catch (error) {
+    ctx.response.status = 500;
+    ctx.response.body = { error: "Failed to read plutus.json", details: error.message };
+  }
 });
 
 const port = parseInt(Deno.env.get("PORT") || "3000");

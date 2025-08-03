@@ -17,8 +17,8 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css?v=2.67.0">
-    <script src="script.js?v=2.67.0" defer></script>
+    <link rel="stylesheet" href="main.css?v=2.80.0">
+    <script src="script.js?v=2.80.0" defer></script>
 </head>
 <body>
     <div class="container">
@@ -204,14 +204,20 @@
             <section id="historical-winners-section" class="card-panel">
                 <div class="winners-header">
                     <h2 class="section-header">Lottery Winners</h2>
-                    <button class="view-more-btn" id="toggleWinnersSpreadsheet">Monthly Results</button>
+                    <div class="winners-tabs">
+                        <button class="winners-tab active" data-tab="weekly">Weekly Results</button>
+                        <button class="winners-tab" data-tab="monthly">Monthly Results</button>
+                    </div>
                 </div>
-                <div id="historicalWinnersList"></div>
                 
-                <!-- Winners Spreadsheet Section (Collapsible) -->
-                <div id="winners-spreadsheet-section" class="winners-spreadsheet" style="display: none; width: 100%; max-width: 100%; margin: 0; padding: 0;">
+                <!-- Weekly Results Tab Content -->
+                <div id="weekly-tab-content" class="winners-tab-content active">
+                    <div id="historicalWinnersList"></div>
+                </div>
+                
+                <!-- Monthly Results Tab Content -->
+                <div id="monthly-tab-content" class="winners-tab-content">
                     <div class="spreadsheet-header">
-                        <h3>Monthly Results</h3>
                         <div class="spreadsheet-controls">
                             <div class="search-container">
                                 <input type="text" id="winners-search" placeholder="Enter wallet address..." class="search-input">
@@ -370,6 +376,44 @@
                 </div>
             </div>
         </footer>
+    </div>
+    
+    <!-- Wallet Selection Modal -->
+    <div id="wallet-modal" class="wallet-modal">
+        <div class="wallet-modal-content">
+            <div class="wallet-modal-header">
+                <h3>Choose Your Wallet</h3>
+                <button id="close-wallet-modal" class="wallet-modal-close">&times;</button>
+            </div>
+            <div class="wallet-modal-body">
+                <div class="wallet-options">
+                    <div class="wallet-option" data-wallet="eternl">
+                        <div class="wallet-logo">
+                            <img src="img/eternl.png" alt="Eternl" class="wallet-logo-img">
+                        </div>
+                        <div class="wallet-brand">Eternl</div>
+                    </div>
+                    <div class="wallet-option" data-wallet="tokeo">
+                        <div class="wallet-logo">
+                            <img src="img/tokeo.png" alt="Tokeo" class="wallet-logo-img">
+                        </div>
+                        <div class="wallet-brand">Tokeo</div>
+                    </div>
+                    <div class="wallet-option" data-wallet="lace">
+                        <div class="wallet-logo">
+                            <img src="img/lace.png" alt="Lace" class="wallet-logo-img">
+                        </div>
+                        <div class="wallet-brand">Lace</div>
+                    </div>
+                    <div class="wallet-option" data-wallet="vespr">
+                        <div class="wallet-logo">
+                            <img src="img/vespr.png" alt="Vespr" class="wallet-logo-img">
+                        </div>
+                        <div class="wallet-brand">Vespr</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <!-- Notification element -->

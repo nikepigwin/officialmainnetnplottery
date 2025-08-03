@@ -799,7 +799,7 @@ async function refreshStats() {
         if (stats.totalParticipants !== undefined) {
           window.currentParticipantCount = stats.totalParticipants;
           console.log('🎯 BULLETPROOF: Updated participant count from totalParticipants:', window.currentParticipantCount);
-        } else {
+            } else {
           console.log('⚠️ No totalParticipants in stats, keeping existing count:', window.currentParticipantCount);
         }
         
@@ -991,12 +991,12 @@ async function refreshWinners() {
                     return;
                 }
                 
-                // Only refresh if Detailed Winners History is actually open
-                const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
-                if (spreadsheetSection && spreadsheetSection.style.display !== 'none') {
+                // Only refresh if Monthly Results tab is actually active
+                const monthlyTabContent = document.getElementById('monthly-tab-content');
+                if (monthlyTabContent && monthlyTabContent.classList.contains('active')) {
                     refreshDetailedWinnersHistory();
                 } else {
-                    console.log('📊 Detailed Winners History not open, skipping refresh');
+                    console.log('📊 Monthly Results tab not active, skipping refresh');
                 }
             }, 600000); // 10 minutes - much safer interval to prevent data loss
         }
@@ -1143,107 +1143,10 @@ async function refreshWinners() {
 // Wallet Connection Functions
 async function connectWallet() {
   console.log('🔌 connectWallet function called!');
-  console.log('🔌 Attempting to connect wallet...');
+  console.log('🔌 Showing wallet selection modal...');
   
-  try {
-    // Initialize Lucid first
-    if (!lucid) {
-      lucid = await initializeLucid();
-      window.lucid = lucid;
-    }
-    
-    // Select wallet using web bundle API
-    const api = await window.cardano.eternl.enable();
-    lucid.selectWallet(api);
-    window.lucid = lucid;
-    
-    // Get wallet address
-    const address = await lucid.wallet.address();
-    console.log('✅ Wallet connected, address:', address);
-    console.log('Address prefix:', address.slice(0, 8));
-    
-    // Get wallet balance
-    const utxos = await lucid.wallet.getUtxos();
-    let totalLovelace = utxos.reduce((sum, utxo) => sum + BigInt(utxo.assets['lovelace'] || 0n), 0n);
-    let balanceADA = Number(totalLovelace) / 1_000_000;
-    
-    console.log('✅ Balance calculated:', balanceADA, 'ADA');
-    
-    // Store wallet connection
-    connectedWallet = lucid.wallet;
-    window.currentUserAddress = address;
-    
-    // Check if this is the admin wallet
-    const adminWalletAddress = 'addr_test1qrpxk3kmrcy7u2dthmndu3nm7wvw9jlfmnm909qyvjck9qkapqpp4z89q6t3fsynhzslj4ad2t9vpyx3mlw0lszpv98sftkqtc';
-    const isAdminWallet = address === adminWalletAddress;
-    
-    // Show/hide admin section based on wallet
-    const adminSection = document.getElementById('adminSection');
-    if (adminSection) {
-      adminSection.style.display = isAdminWallet ? 'block' : 'none';
-    }
-    
-    // Update UI (wallet balance is optional since we removed it from display)
-    const walletBalanceSpan = document.getElementById('wallet-ada');
-    if (walletBalanceSpan) {
-      walletBalanceSpan.textContent = balanceADA.toFixed(2);
-    }
-    
-    const walletAddressSpan = document.getElementById('wallet-address');
-    if (walletAddressSpan) {
-      walletAddressSpan.textContent = formatAddress(address);
-    }
-    
-    // Show connected state
-    const walletDisconnected = document.getElementById('wallet-disconnected');
-    const walletConnected = document.getElementById('wallet-connected');
-    
-    if (walletDisconnected) walletDisconnected.style.display = 'none';
-    if (walletConnected) walletConnected.style.display = 'block';
-    
-    // Show ticket section when wallet connects
-    const myTicketsSection = document.getElementById('my-tickets-section');
-    if (myTicketsSection) {
-      myTicketsSection.style.display = 'flex';
-    }
-    
-    // Update sales status display
-    updateSalesStatus();
-    
-            showNotification('🟢 Wallet Connected', 'success');
-    
-    // Refresh data
-    await Promise.all([refreshStats(), refreshWinners()]);
-    await fetchAndShowPrizeStatus();
-    await fetchAndDisplayUserTickets();
-    
-    // Reset buyTicketsBtn state
-    const buyTicketsBtn = document.getElementById('buy-tickets');
-    if (buyTicketsBtn) {
-      buyTicketsBtn.textContent = 'Buy Tickets';
-      buyTicketsBtn.disabled = false;
-    }
-    
-    // After successful connection:
-    // Note: Don't modify connect button - we use separate wallet states now
-    // const connectBtn = document.getElementById('connect-wallet-btn');
-    // if (connectBtn) {
-    //   connectBtn.textContent = 'Disconnect Wallet';
-    //   connectBtn.classList.remove('btn-primary');
-    //   connectBtn.classList.add('btn-danger');
-    //   connectBtn.onclick = disconnectWallet;
-    // }
-    // const addrDiv = document.getElementById('wallet-address-top');
-    // if (addrDiv) {
-    //   addrDiv.textContent = formatAddress(window.currentUserAddress);
-    //   addrDiv.style.display = 'block';
-    // }
-    
-    updateAdminButtonState();
-  } catch (error) {
-    console.error('❌ Wallet connection failed:', error);
-            showNotification('🔴 Wallet Connection Failed', 'error');
-  }
+  // Show wallet selection modal instead of direct connection
+  showWalletModal();
 }
 
 function disconnectWallet() {
@@ -1550,8 +1453,6 @@ function setupFlashBuyButtons() {
         
         // Call the existing buy tickets function
         await buyTicketsForLottery(ticketCount);
-        
-        showNotification(`⚡ Flash bought ${ticketCount} tickets!`, 'success');
       } catch (error) {
         console.error('Flash buy error:', error);
         showNotification('❌ Transaction Failed', 'error');
@@ -2027,9 +1928,18 @@ function setupEventListeners() {
   
   // Winners spreadsheet functionality
       const toggleWinnersBtn = document.getElementById('toggleWinnersSpreadsheet');
-    if (toggleWinnersBtn) {
-        toggleWinnersBtn.addEventListener('click', toggleWinnersSpreadsheet);
-    }
+            // Set up winners tab event listeners
+        const winnersTabs = document.querySelectorAll('.winners-tab');
+        
+        winnersTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                switchWinnersTab(tabName);
+            });
+        });
+        
+        // Set up wallet selection modal
+        setupWalletSelectionModal();
     
 
     
@@ -3293,10 +3203,10 @@ function syncWinnersToTrackerPage() {
 
 // Function to refresh Detailed Winners History if it's open
 function refreshDetailedWinnersHistory() {
-    const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
-    console.log('🔍 Checking if Detailed Winners History is open...');
-    console.log('🔍 Spreadsheet section:', spreadsheetSection);
-    console.log('🔍 Display style:', spreadsheetSection?.style.display);
+    const monthlyTabContent = document.getElementById('monthly-tab-content');
+    console.log('🔍 Checking if Monthly Results tab is active...');
+    console.log('🔍 Monthly tab content:', monthlyTabContent);
+    console.log('🔍 Active class:', monthlyTabContent?.classList.contains('active'));
     
     // Check if there's an active search - if so, don't refresh
     const searchInput = document.getElementById('winners-search');
@@ -3307,7 +3217,7 @@ function refreshDetailedWinnersHistory() {
         return;
     }
     
-    if (spreadsheetSection && spreadsheetSection.style.display !== 'none') {
+    if (monthlyTabContent && monthlyTabContent.classList.contains('active')) {
         console.log('🔄 Auto-refreshing Detailed Winners History...');
         
         // Check if we have existing data first
@@ -3356,7 +3266,7 @@ function refreshDetailedWinnersHistory() {
                     // Save to localStorage immediately
                     saveWinnersToLocalStorage();
                     console.log('✅ Updated with fresh data from backend');
-                } else {
+        } else {
                     console.log('⚠️ Backend returned empty data, preserving existing data');
                     
                     // Preserve existing data instead of overwriting
@@ -3460,34 +3370,235 @@ function saveWinnersToLocalStorage() {
     }
 }
 
-// Function to toggle winners spreadsheet
-function toggleWinnersSpreadsheet() {
-    const spreadsheetSection = document.getElementById('winners-spreadsheet-section');
-    const toggleBtn = document.getElementById('toggleWinnersSpreadsheet');
+// Function to handle winners tab switching
+function switchWinnersTab(tabName) {
+    console.log(`🔄 Switching to ${tabName} tab`);
     
-    if (spreadsheetSection.style.display === 'none') {
-        spreadsheetSection.style.display = 'block';
-        toggleBtn.textContent = 'Weekly Results';
+    // Remove active class from all tabs and content
+    const allTabs = document.querySelectorAll('.winners-tab');
+    const allTabContents = document.querySelectorAll('.winners-tab-content');
+    
+    allTabs.forEach(tab => tab.classList.remove('active'));
+    allTabContents.forEach(content => content.classList.remove('active'));
+    
+    // Add active class to selected tab and content
+    const selectedTab = document.querySelector(`[data-tab="${tabName}"]`);
+    const selectedContent = document.getElementById(`${tabName}-tab-content`);
+    
+    if (selectedTab && selectedContent) {
+        selectedTab.classList.add('active');
+        selectedContent.classList.add('active');
         
-        // Get current month winners only
-        let allWinners = [];
-        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
-            allWinners = window.flatHistoricalWinners;
+        // Load data for the selected tab
+        if (tabName === 'monthly') {
+            loadMonthlyWinners();
+        } else if (tabName === 'weekly') {
+            loadWeeklyWinners();
+        }
+    }
+}
+
+// Function to load weekly winners (default view)
+function loadWeeklyWinners() {
+    console.log('📊 Loading weekly winners...');
+    // Weekly winners are already loaded in historicalWinnersList
+    // This function can be used for any weekly-specific logic
+}
+
+// Function to load monthly winners (hybrid approach)
+function loadMonthlyWinners() {
+    console.log('📊 Loading monthly winners (hybrid approach)...');
+    
+    // Strategy: Try backend first, fallback to localStorage, preserve existing data
+    const now = Date.now();
+    const timeSinceLastSync = now - window.lastBackendSync;
+    const shouldSyncFromBackend = timeSinceLastSync > 300000; // 5 minutes
+    
+    if (shouldSyncFromBackend) {
+        console.log('🔄 Syncing monthly data from backend...');
+        syncMonthlyWinnersFromBackend();
+    } else {
+        console.log('📊 Using cached monthly data...');
+        loadMonthlyWinnersFromCache();
+    }
+}
+
+// Function to sync monthly winners from backend with data preservation
+function syncMonthlyWinnersFromBackend() {
+    fetchAPI('/api/lottery/winners').then(response => {
+        if (response.success && response.historicalWinners) {
+            console.log('📊 Fresh monthly data from backend:', response.historicalWinners.length, 'rounds');
+            
+            // Process backend data
+            let freshWinners = [];
+            if (response.historicalWinners && Array.isArray(response.historicalWinners)) {
+                response.historicalWinners.forEach(round => {
+                    if (round.winners && Array.isArray(round.winners)) {
+                        round.winners.forEach(winner => {
+                            freshWinners.push({
+                                ...winner,
+                                roundNumber: round.roundNumber,
+                                timestamp: round.drawDate || winner.claimedAt,
+                                txHash: winner.transactionId,
+                                amountADA: winner.amount,
+                                source: 'backend'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Merge with existing data (preserve local additions)
+            const existingData = window.monthlyWinnersData || [];
+            const mergedData = mergeWinnersData(freshWinners, existingData);
+            
+            // Update global storage
+            window.monthlyWinnersData = mergedData;
+            window.lastBackendSync = Date.now();
+            
+            // Save to localStorage
+            saveMonthlyWinnersToLocalStorage(mergedData);
+            
+            // Display current month data
+            const currentMonthWinners = filterWinnersByCurrentMonth(mergedData);
+            populateWinnersSpreadsheet(currentMonthWinners);
+            
+            console.log('✅ Monthly data synced successfully:', mergedData.length, 'total winners');
         } else {
-            // Try to get from localStorage
-            const stored = localStorage.getItem('nikepigWinnersData');
-            if (stored) {
-                const winnersData = JSON.parse(stored);
-                allWinners = winnersData.current || [];
+            console.log('⚠️ Backend returned no data, using cached data');
+            loadMonthlyWinnersFromCache();
+        }
+    }).catch(error => {
+        console.error('❌ Error syncing from backend:', error);
+        console.log('📊 Falling back to cached data');
+        loadMonthlyWinnersFromCache();
+    });
+}
+
+// Function to load monthly winners from cache
+function loadMonthlyWinnersFromCache() {
+    console.log('📊 Loading monthly data from cache...');
+    
+    let cachedData = [];
+    
+    // Try primary localStorage
+    const stored = localStorage.getItem('nikepigWinnersData');
+    if (stored) {
+        try {
+            const winnersData = JSON.parse(stored);
+            cachedData = winnersData.current || [];
+            console.log('📊 Loaded from primary cache:', cachedData.length, 'winners');
+        } catch (error) {
+            console.error('❌ Error parsing primary cache:', error);
+        }
+    }
+    
+    // If no primary data, try backup
+    if (cachedData.length === 0) {
+        const backupStored = localStorage.getItem('nikepigWinnersDataBackup');
+        if (backupStored) {
+            try {
+                const backupData = JSON.parse(backupStored);
+                cachedData = backupData.current || [];
+                console.log('📊 Loaded from backup cache:', cachedData.length, 'winners');
+            } catch (error) {
+                console.error('❌ Error parsing backup cache:', error);
             }
         }
+    }
+    
+    // Update global storage
+    window.monthlyWinnersData = cachedData;
+    
+    // Display current month data
+    const currentMonthWinners = filterWinnersByCurrentMonth(cachedData);
+    populateWinnersSpreadsheet(currentMonthWinners);
+    
+    console.log('✅ Monthly data loaded from cache:', cachedData.length, 'winners');
+}
+
+// Function to merge winners data (backend + local)
+function mergeWinnersData(backendData, localData) {
+    console.log('🔄 Merging winners data...');
+    console.log('📊 Backend data:', backendData.length, 'winners');
+    console.log('📊 Local data:', localData.length, 'winners');
+    
+    const merged = [...backendData];
+    const backendKeys = new Set();
+    
+    // Create set of backend winner keys
+    backendData.forEach(winner => {
+        const key = `${winner.roundNumber}-${winner.transactionId || winner.txHash}-${winner.position}`;
+        backendKeys.add(key);
+    });
+    
+    // Add local data that's not in backend
+    localData.forEach(winner => {
+        const key = `${winner.roundNumber}-${winner.transactionId || winner.txHash}-${winner.position}`;
+        if (!backendKeys.has(key)) {
+            winner.source = 'local';
+            merged.push(winner);
+            console.log('📊 Added local winner:', winner);
+        }
+    });
+    
+    // Remove duplicates and sort by timestamp
+    const uniqueMerged = removeDuplicateWinners(merged);
+    const sortedMerged = uniqueMerged.sort((a, b) => {
+        const timestampA = new Date(a.timestamp || 0);
+        const timestampB = new Date(b.timestamp || 0);
+        return timestampB - timestampA;
+    });
+    
+    console.log('📊 Merged data:', sortedMerged.length, 'unique winners');
+    return sortedMerged;
+}
+
+// Function to remove duplicate winners
+function removeDuplicateWinners(winners) {
+    const seen = new Set();
+    const unique = [];
+    
+    winners.forEach(winner => {
+        const key = `${winner.roundNumber}-${winner.transactionId || winner.txHash}-${winner.position}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(winner);
+        }
+    });
+    
+    return unique;
+}
+
+// Function to save monthly winners to localStorage
+function saveMonthlyWinnersToLocalStorage(winners) {
+    try {
+        const currentMonthWinners = filterWinnersByCurrentMonth(winners);
         
-        // Filter to current month only
-        const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
-        populateWinnersSpreadsheet(currentMonthWinners);
-    } else {
-        spreadsheetSection.style.display = 'none';
-        toggleBtn.textContent = 'Monthly Results';
+        const data = {
+            current: currentMonthWinners,
+            all: winners,
+            timestamp: Date.now(),
+            version: '2.68.0',
+            source: 'hybrid'
+        };
+        
+        localStorage.setItem('nikepigWinnersData', JSON.stringify(data));
+        
+        // Create backup
+        const backupData = {
+            current: currentMonthWinners,
+            all: winners,
+            timestamp: Date.now(),
+            version: '2.68.0',
+            backup: true,
+            source: 'hybrid'
+        };
+        localStorage.setItem('nikepigWinnersDataBackup', JSON.stringify(backupData));
+        
+        console.log('💾 Saved monthly winners to localStorage:', currentMonthWinners.length, 'current month winners');
+    } catch (error) {
+        console.error('❌ Error saving to localStorage:', error);
     }
 }
 
@@ -3972,4 +4083,234 @@ function formatTransactionId(txId) {
 function switchSpreadsheetTab(month) {
     // This function is no longer used since we removed the month tabs
     console.log('Tab switching removed - now showing current month only');
+}
+
+// Function to setup wallet selection modal
+function setupWalletSelectionModal() {
+    const connectWalletBtn = document.getElementById('connect-wallet-btn');
+    const walletModal = document.getElementById('wallet-modal');
+    const closeWalletModal = document.getElementById('close-wallet-modal');
+    const walletOptions = document.querySelectorAll('.wallet-option');
+    
+    // Show modal when connect wallet button is clicked
+    if (connectWalletBtn) {
+        connectWalletBtn.addEventListener('click', () => {
+            showWalletModal();
+        });
+    }
+    
+    // Close modal when close button is clicked
+    if (closeWalletModal) {
+        closeWalletModal.addEventListener('click', () => {
+            hideWalletModal();
+        });
+    }
+    
+    // Close modal when clicking outside
+    if (walletModal) {
+        walletModal.addEventListener('click', (e) => {
+            if (e.target === walletModal) {
+                hideWalletModal();
+            }
+        });
+    }
+    
+    // Handle wallet selection
+    walletOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const walletType = option.getAttribute('data-wallet');
+            console.log('🎯 Selected wallet:', walletType);
+            hideWalletModal();
+            connectToWallet(walletType);
+        });
+    });
+}
+
+// Function to show wallet modal
+function showWalletModal() {
+    const walletModal = document.getElementById('wallet-modal');
+    if (walletModal) {
+        walletModal.classList.add('show');
+        console.log('🔗 Wallet selection modal opened');
+    }
+}
+
+// Function to hide wallet modal
+function hideWalletModal() {
+    const walletModal = document.getElementById('wallet-modal');
+    if (walletModal) {
+        walletModal.classList.remove('show');
+        console.log('🔗 Wallet selection modal closed');
+    }
+}
+
+// Function to connect to specific wallet
+async function connectToWallet(walletType) {
+    console.log(`🔗 Connecting to ${walletType} wallet...`);
+    
+    try {
+        // Add timeout protection (without notification)
+        const connectionTimeout = setTimeout(() => {
+            // Timeout without notification - just let it fail silently
+        }, 30000); // 30 second timeout
+        
+        // Check if wallet is available
+        if (!window.cardano || !window.cardano[walletType]) {
+            clearTimeout(connectionTimeout);
+            throw new Error(`${walletType} wallet is not installed or not available`);
+        }
+        
+        console.log(`🔍 ${walletType} wallet detected, attempting connection...`);
+        
+        // Initialize Lucid first
+        if (!lucid) {
+            console.log('🔍 Initializing Lucid...');
+            lucid = await initializeLucid();
+            window.lucid = lucid;
+        }
+        
+        // Connect to the specific wallet using web bundle API
+        let api;
+        console.log(`🔍 Attempting to enable ${walletType} wallet...`);
+        
+        switch (walletType) {
+            case 'eternl':
+                api = await window.cardano.eternl.enable();
+                break;
+            case 'tokeo':
+                api = await window.cardano.tokeo.enable();
+                break;
+            case 'lace':
+                api = await window.cardano.lace.enable();
+                break;
+            case 'vespr':
+                api = await window.cardano.vespr.enable();
+                break;
+            default:
+                throw new Error(`Unsupported wallet type: ${walletType}`);
+        }
+        
+        console.log(`✅ ${walletType} wallet enabled successfully`);
+        
+        lucid.selectWallet(api);
+        window.lucid = lucid;
+        
+        // Get wallet address
+        console.log('🔍 Getting wallet address...');
+        const address = await lucid.wallet.address();
+        console.log(`✅ Connected to ${walletType} wallet:`, address);
+        console.log('Address prefix:', address.slice(0, 8));
+        
+        // Get wallet balance
+        console.log('🔍 Getting wallet balance...');
+        const utxos = await lucid.wallet.getUtxos();
+        let totalLovelace = utxos.reduce((sum, utxo) => sum + BigInt(utxo.assets['lovelace'] || 0n), 0n);
+        let balanceADA = Number(totalLovelace) / 1_000_000;
+        
+        console.log('✅ Balance calculated:', balanceADA, 'ADA');
+        
+        // Store wallet connection
+        console.log('🔍 Storing wallet connection...');
+        connectedWallet = lucid.wallet;
+        window.currentUserAddress = address;
+        window.connectedWallet = walletType;
+        
+        // Check if this is the admin wallet
+        console.log('🔍 Checking admin wallet...');
+        const adminWalletAddress = 'addr_test1qrpxk3kmrcy7u2dthmndu3nm7wvw9jlfmnm909qyvjck9qkapqpp4z89q6t3fsynhzslj4ad2t9vpyx3mlw0lszpv98sftkqtc';
+        const isAdminWallet = address === adminWalletAddress;
+        
+        // Show/hide admin section based on wallet
+        const adminSection = document.getElementById('adminSection');
+        if (adminSection) {
+            adminSection.style.display = isAdminWallet ? 'block' : 'none';
+        }
+        
+        // Update UI
+        console.log('🔍 Updating UI elements...');
+        const walletBalanceSpan = document.getElementById('wallet-ada');
+        if (walletBalanceSpan) {
+            walletBalanceSpan.textContent = balanceADA.toFixed(2);
+        }
+        
+        // Update wallet display with wallet type
+        console.log('🔍 Updating wallet display...');
+        updateWalletDisplay(address, walletType);
+        
+        // Show connected state
+        console.log('🔍 Showing connected state...');
+        const walletDisconnected = document.getElementById('wallet-disconnected');
+        const walletConnected = document.getElementById('wallet-connected');
+        
+        if (walletDisconnected) walletDisconnected.style.display = 'none';
+        if (walletConnected) walletConnected.style.display = 'block';
+        
+        // Show ticket section when wallet connects
+        console.log('🔍 Showing ticket section...');
+        const myTicketsSection = document.getElementById('my-tickets-section');
+        if (myTicketsSection) {
+            myTicketsSection.style.display = 'flex';
+        }
+        
+        // Update sales status display
+        console.log('🔍 Updating sales status...');
+        updateSalesStatus();
+        
+        // Show wallet connected notification
+        showNotification('🟢 Wallet Connected', 'success');
+        
+        // Refresh data
+        console.log('🔍 Refreshing data...');
+        try {
+            await Promise.all([refreshStats(), refreshWinners()]);
+            await fetchAndShowPrizeStatus();
+            await fetchAndDisplayUserTickets();
+        } catch (error) {
+            console.error('❌ Error refreshing data:', error);
+        }
+        
+        // Reset buyTicketsBtn state
+        console.log('🔍 Resetting buy tickets button...');
+        const buyTicketsBtn = document.getElementById('buy-tickets');
+        if (buyTicketsBtn) {
+            buyTicketsBtn.textContent = 'Buy Tickets';
+            buyTicketsBtn.disabled = false;
+        }
+        
+        console.log('🔍 Updating admin button state...');
+        updateAdminButtonState();
+        
+        console.log('✅ Wallet connection process completed successfully');
+        
+    } catch (error) {
+        console.error(`❌ Failed to connect to ${walletType}:`, error);
+        showNotification(`❌ Failed to connect to ${walletType}`, 'error');
+    } finally {
+        clearTimeout(connectionTimeout);
+        console.log('✅ Wallet connection process completed');
+    }
+}
+
+// Function to update wallet display with wallet type
+function updateWalletDisplay(address, walletType) {
+    const walletDisconnected = document.getElementById('wallet-disconnected');
+    const walletConnected = document.getElementById('wallet-connected');
+    const walletAddressSpan = document.getElementById('wallet-address');
+    
+    if (walletDisconnected && walletConnected && walletAddressSpan) {
+        // Hide disconnected state
+        walletDisconnected.style.display = 'none';
+        
+        // Show connected state
+        walletConnected.style.display = 'block';
+        
+        // Format and display address
+        const formattedAddress = formatAddress(address);
+        walletAddressSpan.textContent = formattedAddress;
+        
+        // Add wallet type indicator
+        walletAddressSpan.setAttribute('data-wallet-type', walletType);
+        
+        console.log(`✅ Wallet display updated for ${walletType}`);
+    }
 }
