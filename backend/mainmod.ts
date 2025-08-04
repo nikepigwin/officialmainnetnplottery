@@ -11,14 +11,14 @@ function normalizeAdaPolicyId(pid: string): string {
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
 // Global storage for real historical winners with file persistence
-const WINNERS_FILE = './data/historical_winners.json';
+const WINNERS_FILE = '/tmp/historical_winners.json';
 
 // Ensure data directory exists
 try {
-  Deno.mkdirSync('./data', { recursive: true });
-  console.log('📁 Data directory created/verified');
+  Deno.mkdirSync('/tmp', { recursive: true });
+  console.log('📁 /tmp directory verified');
 } catch (error) {
-  console.log('📁 Data directory already exists');
+  console.log('📁 /tmp directory already exists');
 }
 
 let historicalWinnersStorage: Array<{
