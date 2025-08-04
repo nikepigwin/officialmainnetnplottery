@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v2.80.0-backend-fix';
+const CACHE_NAME = 'nikepig-lottery-v2.81.0-debug-persistence';
 const urlsToCache = [
   '/',
   '/index.html',

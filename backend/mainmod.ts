@@ -477,9 +477,19 @@ async function processAutomatedRound() {
           // Add new winner data
           historicalWinnersStorage.push(winnerData);
           console.log(`💾 Saved winners for round ${currentRoundState.roundNumber} to historical storage`);
+          console.log(`💾 Total rounds in storage: ${historicalWinnersStorage.length}`);
           
           // Save to file immediately for persistence
           saveWinnersToFile();
+          
+          // Verify file was saved
+          try {
+            const savedData = Deno.readTextFileSync(WINNERS_FILE);
+            const savedRounds = JSON.parse(savedData);
+            console.log(`✅ Verified: File now contains ${savedRounds.length} rounds`);
+          } catch (verifyError) {
+            console.error(`❌ File verification failed: ${verifyError.message}`);
+          }
           
           // WebSocket notifications removed
           // broadcastNotification(...) - WebSocket functionality disabled
@@ -1657,6 +1667,17 @@ router.get("/api/lottery/winners", async (ctx) => {
     console.log(`📊 Winners API called - Current round: ${currentRound}`);
     console.log(`📊 Historical winners storage: ${validatedWinners.length} valid rounds`);
     console.log(`📊 Total winners in storage: ${validatedWinners.reduce((sum, round) => sum + round.winners.length, 0)}`);
+    console.log(`📊 Raw historicalWinnersStorage length: ${historicalWinnersStorage.length}`);
+    console.log(`📊 File path: ${WINNERS_FILE}`);
+    
+    // Check if file exists and has data
+    try {
+      const fileContent = Deno.readTextFileSync(WINNERS_FILE);
+      const fileData = JSON.parse(fileContent);
+      console.log(`📊 File contains ${fileData.length} rounds`);
+    } catch (fileError) {
+      console.log(`📊 File read error: ${fileError.message}`);
+    }
 
     ctx.response.body = {
       success: true,
