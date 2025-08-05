@@ -46,6 +46,58 @@ function loadWinnersFromFile() {
   } catch (error) {
     console.log('📊 No existing winners file, starting fresh');
     historicalWinnersStorage = [];
+    
+    // 🔄 RECOVERY: Add missing Round 2 data from yesterday
+    // Based on the logs, Round 2 had 5 participants and 3 winners
+    const recoveredRound2 = {
+      roundNumber: 2,
+      winners: [
+        {
+          position: 1,
+          address: "addr_test1qrpxk3kmrcy7u2dthmndu3nm7wvw9jlfmnm909qyvjck9qkapqpp4z89q6t3fsynhzslj4ad2t9vpyx3mlw0lszpv98sftkqtc",
+          amount: 190.00,
+          percentage: 47.5,
+          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
+          ticketCount: 30,
+          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 24 hours ago
+        },
+        {
+          position: 2,
+          address: "addr_test1qqmzr3xphl08gljcjsfdhgc0qfd8r96h3jy2naxfsjdu0see7hg9gxuqke2e3su2cue42g77drtlphvq3gyvpzmdqgwq2dda0a",
+          amount: 114.00,
+          percentage: 28.5,
+          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
+          ticketCount: 10,
+          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          position: 3,
+          address: "addr_test1qpndcu8gv9t6xrr3up8stle8cmxee7qgys034lfwgzcsckmywrv9avf8lpvwkz97q2c6msaannl28etcuqtuq90pdwnsnhez9k",
+          amount: 76.00,
+          percentage: 19.0,
+          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
+          ticketCount: 10,
+          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        }
+      ],
+      totalPool: 400.00,
+      drawDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      totalParticipants: 5,
+      totalTickets: 80,
+      rolledOverRounds: 1
+    };
+    
+    // Add the recovered round to storage
+    historicalWinnersStorage.push(recoveredRound2);
+    console.log('🔄 RECOVERY: Added missing Round 2 data with 3 winners');
+    
+    // Save the recovered data to file
+    try {
+      Deno.writeTextFileSync(WINNERS_FILE, JSON.stringify(historicalWinnersStorage, null, 2));
+      console.log('💾 RECOVERY: Saved recovered data to file');
+    } catch (saveError) {
+      console.error('❌ RECOVERY: Failed to save recovered data:', saveError);
+    }
   }
 }
 

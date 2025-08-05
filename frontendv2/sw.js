@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v2.82.0-fix-permissions';
+const CACHE_NAME = 'nikepig-lottery-v2.83.0-data-recovery';
 const urlsToCache = [
   '/',
   '/index.html',
