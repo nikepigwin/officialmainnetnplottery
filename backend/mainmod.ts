@@ -13,6 +13,9 @@ console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Den
 // Global storage for real historical winners with file persistence
 const WINNERS_FILE = '/tmp/historical_winners.json';
 
+// Store winners in environment variables for Render persistence
+const WINNERS_ENV_KEY = 'NIKEPIG_HISTORICAL_WINNERS';
+
 // Ensure data directory exists
 try {
   Deno.mkdirSync('/tmp', { recursive: true });
@@ -37,82 +40,36 @@ let historicalWinnersStorage: Array<{
   totalTickets: number;
 }> = [];
 
-// Load existing winners from file on startup
-function loadWinnersFromFile() {
+// Load existing winners from environment variables
+function loadWinnersFromEnv() {
   try {
-    const data = Deno.readTextFileSync(WINNERS_FILE);
-    historicalWinnersStorage = JSON.parse(data);
-    console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from winners file`);
-  } catch (error) {
-    console.log('📊 No existing winners file, starting fresh');
-    historicalWinnersStorage = [];
-    
-    // 🔄 RECOVERY: Add missing Round 2 data from yesterday
-    // Based on the logs, Round 2 had 5 participants and 3 winners
-    const recoveredRound2 = {
-      roundNumber: 2,
-      winners: [
-        {
-          position: 1,
-          address: "addr_test1qrpxk3kmrcy7u2dthmndu3nm7wvw9jlfmnm909qyvjck9qkapqpp4z89q6t3fsynhzslj4ad2t9vpyx3mlw0lszpv98sftkqtc",
-          amount: 190.00,
-          percentage: 47.5,
-          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
-          ticketCount: 30,
-          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 24 hours ago
-        },
-        {
-          position: 2,
-          address: "addr_test1qqmzr3xphl08gljcjsfdhgc0qfd8r96h3jy2naxfsjdu0see7hg9gxuqke2e3su2cue42g77drtlphvq3gyvpzmdqgwq2dda0a",
-          amount: 114.00,
-          percentage: 28.5,
-          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
-          ticketCount: 10,
-          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          position: 3,
-          address: "addr_test1qpndcu8gv9t6xrr3up8stle8cmxee7qgys034lfwgzcsckmywrv9avf8lpvwkz97q2c6msaannl28etcuqtuq90pdwnsnhez9k",
-          amount: 76.00,
-          percentage: 19.0,
-          transactionId: "68b311ed45278cd7368733f44b645f84e4a15222e7622b4c9a7bb73f5a565456",
-          ticketCount: 10,
-          claimedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        }
-      ],
-      totalPool: 400.00,
-      drawDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      totalParticipants: 5,
-      totalTickets: 80,
-      rolledOverRounds: 1
-    };
-    
-    // Add the recovered round to storage
-    historicalWinnersStorage.push(recoveredRound2);
-    console.log('🔄 RECOVERY: Added missing Round 2 data with 3 winners');
-    
-    // Save the recovered data to file
-    try {
-      Deno.writeTextFileSync(WINNERS_FILE, JSON.stringify(historicalWinnersStorage, null, 2));
-      console.log('💾 RECOVERY: Saved recovered data to file');
-    } catch (saveError) {
-      console.error('❌ RECOVERY: Failed to save recovered data:', saveError);
+    const envData = Deno.env.get(WINNERS_ENV_KEY);
+    if (envData) {
+      historicalWinnersStorage = JSON.parse(envData);
+      console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment`);
+    } else {
+      console.log('📊 No existing winners in environment, starting fresh');
+      historicalWinnersStorage = [];
     }
+  } catch (error) {
+    console.log('📊 Error loading from environment, starting fresh:', error);
+    historicalWinnersStorage = [];
   }
 }
 
-// Save winners to file
-function saveWinnersToFile() {
+// Save winners to environment variables
+function saveWinnersToEnv() {
   try {
-    Deno.writeTextFileSync(WINNERS_FILE, JSON.stringify(historicalWinnersStorage, null, 2));
-    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to winners file`);
+    const winnersJson = JSON.stringify(historicalWinnersStorage, null, 2);
+    Deno.env.set(WINNERS_ENV_KEY, winnersJson);
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to environment`);
   } catch (error) {
-    console.error('❌ Error saving winners to file:', error);
+    console.error('❌ Error saving winners to environment:', error);
   }
 }
 
 // Load winners on startup
-loadWinnersFromFile();
+loadWinnersFromEnv();
 
 // Flag to prevent multiple processing of the same round
 let isProcessingRound = false;
@@ -532,16 +489,20 @@ async function processAutomatedRound() {
           console.log(`💾 Total rounds in storage: ${historicalWinnersStorage.length}`);
           
           // Save to file immediately for persistence
-          saveWinnersToFile();
+          saveWinnersToEnv();
           
-          // Verify file was saved
-          try {
-            const savedData = Deno.readTextFileSync(WINNERS_FILE);
-            const savedRounds = JSON.parse(savedData);
-            console.log(`✅ Verified: File now contains ${savedRounds.length} rounds`);
-          } catch (verifyError) {
-            console.error(`❌ File verification failed: ${verifyError.message}`);
-          }
+                      // Verify environment was saved
+            try {
+              const savedData = Deno.env.get(WINNERS_ENV_KEY);
+              if (savedData) {
+                const savedRounds = JSON.parse(savedData);
+                console.log(`✅ Verified: Environment now contains ${savedRounds.length} rounds`);
+              } else {
+                console.log('⚠️ Environment verification: No data found');
+              }
+            } catch (verifyError) {
+              console.error(`❌ Environment verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+            }
           
           // WebSocket notifications removed
           // broadcastNotification(...) - WebSocket functionality disabled
@@ -1720,15 +1681,19 @@ router.get("/api/lottery/winners", async (ctx) => {
     console.log(`📊 Historical winners storage: ${validatedWinners.length} valid rounds`);
     console.log(`📊 Total winners in storage: ${validatedWinners.reduce((sum, round) => sum + round.winners.length, 0)}`);
     console.log(`📊 Raw historicalWinnersStorage length: ${historicalWinnersStorage.length}`);
-    console.log(`📊 File path: ${WINNERS_FILE}`);
+    console.log(`📊 Environment key: ${WINNERS_ENV_KEY}`);
     
-    // Check if file exists and has data
+    // Check if environment has data
     try {
-      const fileContent = Deno.readTextFileSync(WINNERS_FILE);
-      const fileData = JSON.parse(fileContent);
-      console.log(`📊 File contains ${fileData.length} rounds`);
-    } catch (fileError) {
-      console.log(`📊 File read error: ${fileError.message}`);
+      const envData = Deno.env.get(WINNERS_ENV_KEY);
+      if (envData) {
+        const envRounds = JSON.parse(envData);
+        console.log(`📊 Environment contains ${envRounds.length} rounds`);
+      } else {
+        console.log(`📊 Environment is empty`);
+      }
+    } catch (envError) {
+      console.log(`📊 Environment read error: ${envError instanceof Error ? envError.message : 'Unknown error'}`);
     }
 
     ctx.response.body = {
@@ -1740,7 +1705,7 @@ router.get("/api/lottery/winners", async (ctx) => {
       dataIntegrity: {
         totalRounds: validatedWinners.length,
         totalWinners: validatedWinners.reduce((sum, round) => sum + round.winners.length, 0),
-        filePersisted: true
+        envPersisted: true
       }
     };
   } catch (error) {

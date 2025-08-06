@@ -2343,6 +2343,9 @@ async function init() {
     console.log('🎰 Nikepig Lottery Frontend Initialized');
     console.log('%cNikepig Lottery: Make sure BOTH backend (npm run dev, port 3000) and frontend (python3 -m http.server 8000) are running!','color: #00ff99; font-weight: bold; font-size: 1.2em;');
     
+    // Clear potentially corrupted localStorage data
+    clearCorruptedLocalStorage();
+    
     // Initialize mobile features and PWA
     initializeMobileFeatures();
     
@@ -3627,6 +3630,30 @@ function filterWinnersByCurrentMonth(winners) {
     return filteredWinners;
 }
 
+// Function to apply 31-round limit with FIFO for Monthly Results
+// This ensures Monthly Results only shows the 31 most recent rounds
+// Old rounds are automatically removed as new rounds are added (First-In-Last-Out)
+function applyMonthlyRoundLimit(winners) {
+    if (!winners || winners.length === 0) {
+        return [];
+    }
+    
+    // Group winners by round first
+    const groupedRounds = groupWinnersByRound(winners);
+    
+    // Apply 31-round limit (keep only the 31 most recent rounds)
+    // This creates a FIFO effect - oldest rounds are removed when new ones are added
+    const limitedRounds = groupedRounds.slice(0, 31);
+    
+    console.log(`📊 Monthly Results: Limited to ${limitedRounds.length} rounds (max 31)`);
+    console.log(`📊 Monthly Results: Oldest rounds automatically removed to maintain 31-round limit`);
+    
+    // Flatten the limited rounds back to individual winners
+    const limitedWinners = limitedRounds.flat();
+    
+    return limitedWinners;
+}
+
 // Function to populate winners spreadsheet
 function populateWinnersSpreadsheet(winners) {
     const tableBody = document.getElementById('winners-table-body');
@@ -3661,11 +3688,15 @@ function populateWinnersSpreadsheet(winners) {
     
     console.log(`📊 After deduplication: ${uniqueWinners.length} unique winners`);
     
+    // Apply 31-round limit with FIFO (First-In-Last-Out) for Monthly Results
+    const limitedWinners = applyMonthlyRoundLimit(uniqueWinners);
+    console.log(`📊 After 31-round limit: ${limitedWinners.length} winners (${Math.ceil(limitedWinners.length / 3)} rounds)`);
+    
     // Store winners globally for pagination
-    window.allWinners = uniqueWinners;
+    window.allWinners = limitedWinners;
     window.currentPage = 0;
     window.roundsPerPage = 5; // Show 5 rounds per page (15 winners total)
-    window.totalPages = Math.ceil(uniqueWinners.length / (window.roundsPerPage * 3));
+    window.totalPages = Math.ceil(limitedWinners.length / (window.roundsPerPage * 3));
     
     // Display first page
     displayWinnersPage(0);
@@ -4314,3 +4345,19 @@ function updateWalletDisplay(address, walletType) {
         console.log(`✅ Wallet display updated for ${walletType}`);
     }
 }
+
+// Function to clear potentially corrupted localStorage data
+function clearCorruptedLocalStorage() {
+    try {
+        // Clear any potentially corrupted winners data
+        localStorage.removeItem('nikepigWinnersData');
+        localStorage.removeItem('nikepigWinnersDataBackup');
+        localStorage.removeItem('monthlyWinners');
+        localStorage.removeItem('monthlyWinnersBackup');
+        console.log('🧹 Cleared potentially corrupted localStorage data');
+    } catch (error) {
+        console.error('❌ Error clearing localStorage:', error);
+    }
+}
+
+// Function to save winners to localStorage
