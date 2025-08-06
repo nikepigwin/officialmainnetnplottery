@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nikepig-lottery-v2.85.0-31-round-limit';
+const CACHE_NAME = 'nikepig-lottery-v2.86.0-weekly-search';
 const urlsToCache = [
   '/',
   '/index.html',

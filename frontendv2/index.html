@@ -17,8 +17,8 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
-    <link rel="stylesheet" href="main.css?v=2.85.0">
-    <script src="script.js?v=2.85.0" defer></script>
+    <link rel="stylesheet" href="main.css?v=2.86.0">
+    <script src="script.js?v=2.86.0" defer></script>
 </head>
 <body>
     <div class="container">
@@ -212,6 +212,14 @@
                 
                 <!-- Weekly Results Tab Content -->
                 <div id="weekly-tab-content" class="winners-tab-content active">
+                    <div class="spreadsheet-header">
+                        <div class="spreadsheet-controls">
+                            <div class="search-container">
+                                <input type="text" id="weekly-winners-search" placeholder="Enter wallet address..." class="search-input">
+                                <button id="clear-weekly-search" class="clear-search-btn">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                     <div id="historicalWinnersList"></div>
                 </div>
                 

@@ -1986,6 +1986,19 @@ function setupEventListeners() {
       clearSearchBtn.addEventListener('click', clearWinnersSearch);
   }
   
+  // Weekly winners search functionality
+  const weeklyWinnersSearchInput = document.getElementById('weekly-winners-search');
+  if (weeklyWinnersSearchInput) {
+      weeklyWinnersSearchInput.addEventListener('input', (e) => {
+          searchWeeklyWinners(e.target.value);
+      });
+  }
+  
+  const clearWeeklySearchBtn = document.getElementById('clear-weekly-search');
+  if (clearWeeklySearchBtn) {
+      clearWeeklySearchBtn.addEventListener('click', clearWeeklyWinnersSearch);
+  }
+  
   // Spreadsheet tab buttons (removed - no longer needed)
   // Tab switching functionality removed since we now show current month only
 }
@@ -4072,6 +4085,145 @@ function searchWinners(searchTerm) {
     } catch (error) {
         console.error('❌ Error searching winners:', error);
     }
+}
+
+// Function to search weekly winners by wallet address
+// This allows users to search for specific wallet addresses in the Weekly Results section
+function searchWeeklyWinners(searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') {
+        // If search is empty, show all weekly winners
+        const historicalWinnersList = document.getElementById('historicalWinnersList');
+        if (historicalWinnersList) {
+            // Trigger a refresh of the weekly winners display
+            refreshWinners();
+        }
+        return;
+    }
+    
+    try {
+        // Get all winners data from flatHistoricalWinners
+        let allWinners = [];
+        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
+            allWinners = window.flatHistoricalWinners;
+        } else {
+            // Try to get from localStorage
+            const stored = localStorage.getItem('nikepigWinnersData');
+            if (stored) {
+                const winnersData = JSON.parse(stored);
+                allWinners = winnersData.current || [];
+            }
+        }
+        
+        const searchLower = searchTerm.toLowerCase();
+        
+        // Filter winners by address (all historical winners, not just current month)
+        const filteredWinners = allWinners.filter(winner => {
+            const address = winner.winnerAddress || winner.address || '';
+            return address.toLowerCase().includes(searchLower);
+        });
+        
+        // Display filtered results in the weekly winners section
+        displayFilteredWeeklyWinners(filteredWinners);
+        
+        console.log(`🔍 Weekly search completed for: "${searchTerm}" - Found ${filteredWinners.length} results`);
+    } catch (error) {
+        console.error('❌ Error searching weekly winners:', error);
+    }
+}
+
+// Function to display filtered weekly winners
+function displayFilteredWeeklyWinners(winners) {
+    const historicalWinnersList = document.getElementById('historicalWinnersList');
+    if (!historicalWinnersList) return;
+    
+    if (!winners || winners.length === 0) {
+        historicalWinnersList.innerHTML = '<p>No winners found for this search</p>';
+        return;
+    }
+    
+    // Group winners by round number (same round = same box)
+    const groupedByRound = {};
+    
+    winners.forEach(winner => {
+        const roundKey = winner.roundNumber || 'unknown-round';
+        
+        if (!groupedByRound[roundKey]) {
+            groupedByRound[roundKey] = {
+                winners: [],
+                timestamp: winner.timestamp,
+                roundNumber: winner.roundNumber,
+                txHash: winner.txHash
+            };
+        }
+        groupedByRound[roundKey].winners.push(winner);
+    });
+    
+    // Sort groups by timestamp (most recent first)
+    const sortedGroups = Object.entries(groupedByRound).sort((a, b) => {
+        const timestampA = a[1].timestamp ? new Date(a[1].timestamp) : new Date(0);
+        const timestampB = b[1].timestamp ? new Date(b[1].timestamp) : new Date(0);
+        return timestampB - timestampA;
+    });
+    
+    let html = '<div class="historical-winners-container">';
+    
+    // Limit to 7 most recent rounds for weekly display
+    const limitedGroups = sortedGroups.slice(0, 7);
+    
+    limitedGroups.forEach(([roundKey, group]) => {
+        // Sort winners within group by position (1st, 2nd, 3rd place)
+        const sortedWinners = group.winners.sort((a, b) => {
+            const positionA = a.position || 0;
+            const positionB = b.position || 0;
+            return positionA - positionB;
+        });
+        
+        html += '<div class="winner-group">';
+        
+        // Add round info header
+        const timestamp = group.timestamp ? new Date(group.timestamp) : null;
+        const formattedDate = timestamp ? `${timestamp.getDate()}-${timestamp.getMonth() + 1}-${timestamp.getFullYear()}` : '';
+        html += `<div class="winner-group-header">${formattedDate || 'Recent Round'}</div>`;
+        
+        // Add compact winners grid
+        html += '<div class="winners-grid">';
+        sortedWinners.forEach(winner => {
+            const address = winner.address || 'Unknown Address';
+            const amounts = [];
+            if (winner.amountADA || winner.amount) {
+                amounts.push({
+                    amount: winner.amountADA || winner.amount,
+                    token: 'ADA'
+                });
+            }
+            
+            html += `
+                <div class="winner-item">
+                    <div class="winner-prize">
+                        ${amounts.map(token => `<span class="token-amount">${token.amount.toFixed(2)} ${token.token}</span>`).join('')}
+                    </div>
+                    <div class="winner-address">${formatAddress(address)}</div>
+                </div>
+            `;
+        });
+        html += '</div></div>';
+    });
+    
+    html += '</div>';
+    historicalWinnersList.innerHTML = html;
+}
+
+// Function to clear weekly search
+function clearWeeklyWinnersSearch() {
+    const searchInput = document.getElementById('weekly-winners-search');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    console.log('🔄 Clearing weekly search and restoring all results...');
+    
+    // Refresh the weekly winners display
+    refreshWinners();
 }
 
 // Function to clear search

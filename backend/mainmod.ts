@@ -40,36 +40,72 @@ let historicalWinnersStorage: Array<{
   totalTickets: number;
 }> = [];
 
-// Load existing winners from environment variables
-function loadWinnersFromEnv() {
+// Load existing winners from file and environment variables
+function loadWinnersFromStorage() {
   try {
+    // First try to load from file (primary storage)
+    try {
+      const fileData = Deno.readTextFileSync(WINNERS_FILE);
+      if (fileData) {
+        historicalWinnersStorage = JSON.parse(fileData);
+        console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from file storage`);
+        return;
+      }
+    } catch (fileError) {
+      console.log('📊 No existing winners file found, checking environment...');
+    }
+
+    // Fallback to environment variable (for initial data)
     const envData = Deno.env.get(WINNERS_ENV_KEY);
     if (envData) {
-      historicalWinnersStorage = JSON.parse(envData);
-      console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment`);
-    } else {
-      console.log('📊 No existing winners in environment, starting fresh');
-      historicalWinnersStorage = [];
+      try {
+        const envWinners = JSON.parse(envData);
+        if (Array.isArray(envWinners) && envWinners.length > 0) {
+          historicalWinnersStorage = envWinners;
+          console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment`);
+          // Save to file for future persistence
+          saveWinnersToFile();
+          return;
+        }
+      } catch (envParseError) {
+        console.log('📊 Error parsing environment data:', envParseError);
+      }
     }
+
+    // If both file and environment are empty, start fresh
+    console.log('📊 No existing winners found, starting fresh');
+    historicalWinnersStorage = [];
   } catch (error) {
-    console.log('📊 Error loading from environment, starting fresh:', error);
+    console.log('📊 Error loading winners, starting fresh:', error);
     historicalWinnersStorage = [];
   }
 }
 
-// Save winners to environment variables
+// Save winners to file (primary storage method)
+function saveWinnersToFile() {
+  try {
+    const winnersJson = JSON.stringify(historicalWinnersStorage, null, 2);
+    Deno.writeTextFileSync(WINNERS_FILE, winnersJson);
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to file storage`);
+  } catch (error) {
+    console.error('❌ Error saving winners to file:', error);
+  }
+}
+
+// Save winners to environment variables (backup method - for Render compatibility)
 function saveWinnersToEnv() {
   try {
     const winnersJson = JSON.stringify(historicalWinnersStorage, null, 2);
+    // Note: Deno.env.set() doesn't work on Render, but we keep this for local development
     Deno.env.set(WINNERS_ENV_KEY, winnersJson);
-    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to environment`);
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to environment (local only)`);
   } catch (error) {
     console.error('❌ Error saving winners to environment:', error);
   }
 }
 
 // Load winners on startup
-loadWinnersFromEnv();
+loadWinnersFromStorage();
 
 // Flag to prevent multiple processing of the same round
 let isProcessingRound = false;
@@ -488,21 +524,24 @@ async function processAutomatedRound() {
           console.log(`💾 Saved winners for round ${currentRoundState.roundNumber} to historical storage`);
           console.log(`💾 Total rounds in storage: ${historicalWinnersStorage.length}`);
           
-          // Save to file immediately for persistence
+          // Save to file immediately for persistence (primary storage)
+          saveWinnersToFile();
+          
+          // Also try to save to environment (for local development)
           saveWinnersToEnv();
           
-                      // Verify environment was saved
-            try {
-              const savedData = Deno.env.get(WINNERS_ENV_KEY);
-              if (savedData) {
-                const savedRounds = JSON.parse(savedData);
-                console.log(`✅ Verified: Environment now contains ${savedRounds.length} rounds`);
-              } else {
-                console.log('⚠️ Environment verification: No data found');
-              }
-            } catch (verifyError) {
-              console.error(`❌ Environment verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+          // Verify file was saved
+          try {
+            const savedData = Deno.readTextFileSync(WINNERS_FILE);
+            if (savedData) {
+              const savedRounds = JSON.parse(savedData);
+              console.log(`✅ Verified: File storage now contains ${savedRounds.length} rounds`);
+            } else {
+              console.log('⚠️ File verification: No data found');
             }
+          } catch (verifyError) {
+            console.error(`❌ File verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+          }
           
           // WebSocket notifications removed
           // broadcastNotification(...) - WebSocket functionality disabled
@@ -1683,17 +1722,17 @@ router.get("/api/lottery/winners", async (ctx) => {
     console.log(`📊 Raw historicalWinnersStorage length: ${historicalWinnersStorage.length}`);
     console.log(`📊 Environment key: ${WINNERS_ENV_KEY}`);
     
-    // Check if environment has data
+    // Check if file storage has data
     try {
-      const envData = Deno.env.get(WINNERS_ENV_KEY);
-      if (envData) {
-        const envRounds = JSON.parse(envData);
-        console.log(`📊 Environment contains ${envRounds.length} rounds`);
+      const fileData = Deno.readTextFileSync(WINNERS_FILE);
+      if (fileData) {
+        const fileRounds = JSON.parse(fileData);
+        console.log(`📊 File storage contains ${fileRounds.length} rounds`);
       } else {
-        console.log(`📊 Environment is empty`);
+        console.log(`📊 File storage is empty`);
       }
-    } catch (envError) {
-      console.log(`📊 Environment read error: ${envError instanceof Error ? envError.message : 'Unknown error'}`);
+    } catch (fileError) {
+      console.log(`📊 File storage read error: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`);
     }
 
     ctx.response.body = {
