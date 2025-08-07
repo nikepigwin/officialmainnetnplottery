@@ -894,28 +894,78 @@ async function fetchAndDisplayUserTickets() {
   }
 }
 
+
+
+// Safe hybrid sync function (doesn't interfere with ticket purchases)
+async function syncWinnersData() {
+    try {
+        console.log('🔄 Syncing winners data between backend and frontend...');
+        
+        // 1. Load from backend
+        const backendResponse = await fetchAPI('/api/lottery/winners');
+        let backendWinners = [];
+        
+        if (backendResponse.success && backendResponse.historicalWinners) {
+            backendWinners = backendResponse.historicalWinners;
+            console.log(`📊 Backend has ${backendWinners.length} rounds`);
+        }
+        
+        // 2. Load from localStorage
+        const localWinners = loadWinnersFromLocalStorage();
+        console.log(`📊 localStorage has ${localWinners.length} rounds`);
+        
+        // 3. Merge data (backend takes priority, but keep local if backend is empty)
+        let mergedWinners = [];
+        
+        if (backendWinners.length > 0) {
+            // Backend has data - use it and update localStorage
+            mergedWinners = backendWinners;
+            console.log('✅ Using backend data and updated localStorage');
+        } else if (localWinners.length > 0) {
+            // Backend is empty but localStorage has data - use localStorage
+            mergedWinners = localWinners;
+            console.log('✅ Using localStorage data (backend empty)');
+        } else {
+            // Both empty
+            mergedWinners = [];
+            console.log('✅ Both backend and localStorage are empty');
+        }
+        
+        // 4. Update global variables
+        window.flatHistoricalWinners = mergedWinners;
+        window.currentRoundWinners = backendResponse.currentRoundWinners || [];
+        
+        // 5. Update UI
+        syncWinnersToTrackerPage();
+        saveWinnersToLocalStorage();
+        
+        console.log(`🔄 Winners sync completed: ${mergedWinners.length} rounds available`);
+        return mergedWinners;
+        
+    } catch (error) {
+        console.error('❌ Error syncing winners data:', error);
+        // Fallback to localStorage only
+        const localWinners = loadWinnersFromLocalStorage();
+        window.flatHistoricalWinners = localWinners;
+        return localWinners;
+    }
+}
+
 async function refreshWinners() {
     try {
-        console.log('🔄 Refreshing winners...');
-        const response = await fetchAPI('/api/lottery/winners');
-        if (!response.success) throw new Error('Failed to fetch winners');
-        const { currentRoundWinners, historicalWinners } = response;
+        console.log('🔄 Refreshing winners (hybrid approach)...');
         
-        console.log('📊 Winners response:', {
-            currentRoundWinners: currentRoundWinners?.length || 0,
-            historicalWinners: historicalWinners?.length || 0,
-            currentRoundWinnersData: currentRoundWinners,
-            historicalWinnersData: historicalWinners
-        });
+        // Use the new hybrid sync function
+        const flatHistoricalWinners = await syncWinnersData();
         
         // Flatten historical winners structure - backend returns nested structure
-        let flatHistoricalWinners = [];
-        if (historicalWinners && Array.isArray(historicalWinners)) {
+        let processedWinners = [];
+        if (flatHistoricalWinners && Array.isArray(flatHistoricalWinners)) {
             console.log('🔍 Processing historical winners structure...');
-            historicalWinners.forEach(round => {
+            flatHistoricalWinners.forEach(round => {
                 if (round.winners && Array.isArray(round.winners)) {
                     round.winners.forEach(winner => {
-                        flatHistoricalWinners.push({
+                        processedWinners.push({
                             ...winner,
                             roundNumber: round.roundNumber,
                             timestamp: round.drawDate || winner.claimedAt,
@@ -925,12 +975,11 @@ async function refreshWinners() {
                     });
                 }
             });
-            console.log('🔍 Flattened historical winners:', flatHistoricalWinners);
+            console.log('🔍 Processed historical winners:', processedWinners);
         }
         
         // Store in global variables for lottery-winners page access
-        window.flatHistoricalWinners = flatHistoricalWinners;
-        window.currentRoundWinners = currentRoundWinners || [];
+        window.flatHistoricalWinners = processedWinners;
         
         // Check if current user is a winner (for winner banner)
         let userIsWinner = false;
@@ -939,12 +988,12 @@ async function refreshWinners() {
         let userStatus = '';
         
         // Check current round winners for user
-        if (currentRoundWinners && currentRoundWinners.length > 0) {
-            const userWinner = currentRoundWinners.find(winner => 
+        if (window.currentRoundWinners && window.currentRoundWinners.length > 0) {
+            const userWinner = window.currentRoundWinners.find(winner => 
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
-                                userIsWinner = true;
+                userIsWinner = true;
                 userPrize = userWinner.amountADA;
                 userTxHash = userWinner.txHash || '';
                 userStatus = userWinner.status || '';
@@ -952,8 +1001,8 @@ async function refreshWinners() {
         }
         
         // Check flattened historical winners for user 
-        if (!userIsWinner && flatHistoricalWinners && flatHistoricalWinners.length > 0) {
-            const userWinner = flatHistoricalWinners.find(winner => 
+        if (!userIsWinner && processedWinners && processedWinners.length > 0) {
+            const userWinner = processedWinners.find(winner => 
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
@@ -965,17 +1014,14 @@ async function refreshWinners() {
         }
         
         // Show/hide winner banner
-            if (userIsWinner) {
-                showWinnerBanner(userPrize, userTxHash, userStatus);
-            } else {
-                hideWinnerBanner();
+        if (userIsWinner) {
+            showWinnerBanner(userPrize, userTxHash, userStatus);
+        } else {
+            hideWinnerBanner();
         }
         
         // Sync winners data to lottery-winners page
         syncWinnersToTrackerPage();
-        
-        // Save winners data to localStorage for lottery-winners page access
-        saveWinnersToLocalStorage();
         
         // Auto-refresh Detailed Winners History if it's currently open
         refreshDetailedWinnersHistory();
@@ -3338,6 +3384,9 @@ function refreshDetailedWinnersHistory() {
     }
 }
 
+// Frontend localStorage backup for winners data (Render-compatible)
+const WINNERS_LOCAL_STORAGE_KEY = 'nikepig_historical_winners_v2';
+
 // Function to save winners data to localStorage for lottery-winners page access
 function saveWinnersToLocalStorage() {
     try {
@@ -3364,10 +3413,20 @@ function saveWinnersToLocalStorage() {
         
         console.log(`💾 Processing ${uniqueWinners.length} unique winners for localStorage`);
         
+        // Save complete winners data to localStorage (Render backup)
+        const completeData = {
+            winners: uniqueWinners,
+            timestamp: new Date().toISOString(),
+            version: '2.86.0',
+            source: 'frontend-backup'
+        };
+        localStorage.setItem(WINNERS_LOCAL_STORAGE_KEY, JSON.stringify(completeData));
+        console.log(`💾 Saved ${uniqueWinners.length} winners to localStorage (Render backup)`);
+        
         // Filter to current month only for Detailed Winners History
         const currentMonthWinners = filterWinnersByCurrentMonth(uniqueWinners);
         
-        // Save current month winners to localStorage
+        // Save current month winners to localStorage (existing functionality)
         localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: currentMonthWinners }));
         console.log(`💾 Saved ${currentMonthWinners.length} current month winners to localStorage`);
         
@@ -3375,7 +3434,7 @@ function saveWinnersToLocalStorage() {
         const backupData = {
             current: currentMonthWinners,
             timestamp: Date.now(),
-            version: '2.66.0',
+            version: '2.86.0',
             backup: true
         };
         localStorage.setItem('nikepigWinnersDataBackup', JSON.stringify(backupData));
@@ -3383,6 +3442,25 @@ function saveWinnersToLocalStorage() {
         
     } catch (error) {
         console.error('❌ Error saving winners to localStorage:', error);
+    }
+}
+
+// Load winners data from localStorage (frontend backup)
+function loadWinnersFromLocalStorage() {
+    try {
+        const storedData = localStorage.getItem(WINNERS_LOCAL_STORAGE_KEY);
+        if (storedData) {
+            const parsedData = JSON.parse(storedData);
+            if (parsedData.winners && Array.isArray(parsedData.winners)) {
+                console.log(`📊 Loaded ${parsedData.winners.length} rounds from localStorage (frontend backup)`);
+                console.log(`📊 Last updated: ${parsedData.timestamp}`);
+                return parsedData.winners;
+            }
+        }
+        return [];
+    } catch (error) {
+        console.error('❌ Error loading winners from localStorage:', error);
+        return [];
     }
 }
 

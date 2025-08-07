@@ -435,26 +435,14 @@
     <!-- Load Lucid from web module and then load app script.js only after Lucid is ready -->
     <script type="module">
       import { Lucid, Blockfrost, Data } from "https://unpkg.com/lucid-cardano@0.10.11/web/mod.js";
-      
-      try {
-        window.Lucid = Lucid;
-        window.Blockfrost = Blockfrost;
-        window.Data = Data;
-        console.log('✅ Lucid loaded successfully from web module, Data attached');
-        // Dynamically load script.js only after Lucid is ready
-        const script = document.createElement('script');
-        script.src = 'script.js?v=2.86.0';
-        script.onerror = (error) => {
-          console.error('❌ Failed to load script.js:', error);
-        };
-        document.body.appendChild(script);
-      } catch (error) {
-        console.error('❌ Failed to load Lucid:', error);
-        // Fallback: load script.js anyway
-        const script = document.createElement('script');
-        script.src = 'script.js?v=2.86.0';
-        document.body.appendChild(script);
-      }
+      window.Lucid = Lucid;
+      window.Blockfrost = Blockfrost;
+      Lucid.Data = Data;
+      console.log('✅ Lucid loaded successfully from web module, Data attached');
+      // Dynamically load script.js only after Lucid is ready
+      const script = document.createElement('script');
+              script.src = 'script.js?v=2.26.0';
+      document.body.appendChild(script);
     </script>
     
     <!-- PWA Service Worker Registration -->
