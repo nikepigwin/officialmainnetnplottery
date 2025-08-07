@@ -43,11 +43,22 @@ let historicalWinnersStorage: Array<{
 // Load existing winners with Render-compatible storage
 function loadWinnersFromStorage() {
   try {
+    console.log('🔍 Starting winners storage load...');
+    
     // RENDER COMPATIBLE: Always try environment first (primary storage for Render)
     const envData = Deno.env.get(WINNERS_ENV_KEY);
+    console.log(`🔍 Environment variable check: ${WINNERS_ENV_KEY}`);
+    console.log(`🔍 Environment data exists: ${!!envData}`);
+    console.log(`🔍 Environment data length: ${envData ? envData.length : 0}`);
+    
     if (envData) {
       try {
+        console.log(`🔍 Attempting to parse environment data...`);
         const envWinners = JSON.parse(envData);
+        console.log(`🔍 Parsed environment data type: ${typeof envWinners}`);
+        console.log(`🔍 Parsed environment data is array: ${Array.isArray(envWinners)}`);
+        console.log(`🔍 Parsed environment data length: ${Array.isArray(envWinners) ? envWinners.length : 'N/A'}`);
+        
         if (Array.isArray(envWinners) && envWinners.length > 0) {
           historicalWinnersStorage = envWinners;
           console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment (Render primary storage)`);
@@ -55,14 +66,20 @@ function loadWinnersFromStorage() {
           // Also save to file as backup (for local development)
           saveWinnersToFile();
           return;
+        } else {
+          console.log(`🔍 Environment data is empty or invalid array`);
         }
       } catch (envParseError) {
         console.log('📊 Error parsing environment data:', envParseError);
+        console.log('📊 Raw environment data:', envData);
       }
+    } else {
+      console.log(`🔍 No environment variable found for key: ${WINNERS_ENV_KEY}`);
     }
 
     // Fallback: Try file storage (for local development)
     try {
+      console.log(`🔍 Attempting to load from file storage...`);
       const fileData = Deno.readTextFileSync(WINNERS_FILE);
       if (fileData) {
         const fileWinners = JSON.parse(fileData);
@@ -76,7 +93,7 @@ function loadWinnersFromStorage() {
         }
       }
     } catch (fileError) {
-      console.log('📊 No existing winners file found');
+      console.log('📊 No existing winners file found:', fileError.message);
     }
 
     // If both storage methods are empty, start fresh

@@ -3127,7 +3127,7 @@ function setupPoolSlider() {
   const leftBtn = document.getElementById('poolSliderLeft');
   const rightBtn = document.getElementById('poolSliderRight');
   if (!leftBtn || !rightBtn || slides.length === 0) {
-    console.error('Slider: Missing DOM elements for slider or buttons');
+    // Silently skip if elements don't exist (not critical)
     return;
   }
   // Remove previous listeners if any

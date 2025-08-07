@@ -3,9 +3,8 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/main.css',
-  '/script.js',
   '/manifest.json'
-  // '/offline.html' - removed, file doesn't exist
+  // Removed script.js from cache as it's loaded dynamically
 ];
 
 // Install event - cache resources

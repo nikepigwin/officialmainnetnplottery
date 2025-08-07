@@ -18,7 +18,6 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
     
     <link rel="stylesheet" href="main.css?v=2.86.0">
-    <script src="script.js?v=2.86.0" defer></script>
 </head>
 <body>
     <div class="container">
@@ -436,14 +435,26 @@
     <!-- Load Lucid from web module and then load app script.js only after Lucid is ready -->
     <script type="module">
       import { Lucid, Blockfrost, Data } from "https://unpkg.com/lucid-cardano@0.10.11/web/mod.js";
-      window.Lucid = Lucid;
-      window.Blockfrost = Blockfrost;
-      Lucid.Data = Data;
-      console.log('✅ Lucid loaded successfully from web module, Data attached');
-      // Dynamically load script.js only after Lucid is ready
-      const script = document.createElement('script');
-              script.src = 'script.js?v=2.26.0';
-      document.body.appendChild(script);
+      
+      try {
+        window.Lucid = Lucid;
+        window.Blockfrost = Blockfrost;
+        window.Data = Data;
+        console.log('✅ Lucid loaded successfully from web module, Data attached');
+        // Dynamically load script.js only after Lucid is ready
+        const script = document.createElement('script');
+        script.src = 'script.js?v=2.86.0';
+        script.onerror = (error) => {
+          console.error('❌ Failed to load script.js:', error);
+        };
+        document.body.appendChild(script);
+      } catch (error) {
+        console.error('❌ Failed to load Lucid:', error);
+        // Fallback: load script.js anyway
+        const script = document.createElement('script');
+        script.src = 'script.js?v=2.86.0';
+        document.body.appendChild(script);
+      }
     </script>
     
     <!-- PWA Service Worker Registration -->
