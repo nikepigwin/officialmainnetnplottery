@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flash Buy Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .flash-buy-btn { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .flash-buy-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .flash-buy-btn.processing { background: #ffc107; }
+        .status { margin: 10px 0; padding: 10px; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>Flash Buy Debug Page</h1>
+    
+    <div class="debug-section">
+        <h3>Wallet Status</h3>
+        <div id="wallet-status" class="status">Checking wallet connection...</div>
+        <button onclick="connectWallet()">Connect Wallet</button>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Flash Buy Buttons</h3>
+        <div class="flash-buy-buttons">
+            <button class="flash-buy-btn" data-tickets="10">10 Tickets</button>
+            <button class="flash-buy-btn" data-tickets="20">20 Tickets</button>
+            <button class="flash-buy-btn" data-tickets="30">30 Tickets</button>
+        </div>
+        <div id="flash-buy-status" class="status">Flash buy status will appear here...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Backend Status</h3>
+        <div id="backend-status" class="status">Checking backend...</div>
+        <button onclick="checkBackend()">Check Backend</button>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Console Log</h3>
+        <div id="console-log" class="status" style="height: 200px; overflow-y: scroll; font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        // Override console.log to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const logDiv = document.getElementById('console-log');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logDiv.innerHTML += '<div style="color: blue;">' + args.join(' ') + '</div>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            logDiv.innerHTML += '<div style="color: red;">ERROR: ' + args.join(' ') + '</div>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+
+        // Global variables
+        let connectedWallet = false;
+        let currentUserAddress = null;
+        let lucid = null;
+
+        // Check wallet connection
+        function updateWalletStatus() {
+            const statusDiv = document.getElementById('wallet-status');
+            if (connectedWallet && currentUserAddress) {
+                statusDiv.innerHTML = `✅ Connected: ${currentUserAddress.substring(0, 20)}...`;
+                statusDiv.style.color = 'green';
+            } else {
+                statusDiv.innerHTML = '❌ Not connected';
+                statusDiv.style.color = 'red';
+            }
+        }
+
+        // Connect wallet function
+        async function connectWallet() {
+            try {
+                console.log('🔗 Attempting to connect wallet...');
+                
+                // Check if any wallet is available
+                if (typeof window.cardano !== 'undefined') {
+                    console.log('✅ Cardano wallet API available');
+                    
+                    // Try to connect to any available wallet
+                    const wallets = ['eternl', 'nami', 'flint', 'yoroi'];
+                    for (const walletName of wallets) {
+                        if (window.cardano[walletName]) {
+                            console.log(`🔄 Trying ${walletName}...`);
+                            try {
+                                const wallet = window.cardano[walletName];
+                                await wallet.enable();
+                                const addresses = await wallet.getUsedAddresses();
+                                if (addresses.length > 0) {
+                                    currentUserAddress = addresses[0];
+                                    connectedWallet = true;
+                                    console.log(`✅ Connected to ${walletName}: ${currentUserAddress}`);
+                                    updateWalletStatus();
+                                    return;
+                                }
+                            } catch (error) {
+                                console.log(`❌ ${walletName} failed:`, error.message);
+                            }
+                        }
+                    }
+                } else {
+                    console.log('❌ No Cardano wallet API available');
+                }
+                
+                // Fallback: simulate connection for testing
+                console.log('🔄 Simulating wallet connection for testing...');
+                currentUserAddress = 'addr_test1qq8ac7qqy0vtulyl7wntmsxc6wex80gvcyjy33qffrhm7sh927ysx5sftuw0dlft05dz3c7revpf7jx0xnlcjz3g69mqkt5dmn';
+                connectedWallet = true;
+                updateWalletStatus();
+                
+            } catch (error) {
+                console.error('❌ Wallet connection failed:', error);
+            }
+        }
+
+        // Check backend status
+        async function checkBackend() {
+            const statusDiv = document.getElementById('backend-status');
+            try {
+                console.log('🔍 Checking backend health...');
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                statusDiv.innerHTML = `✅ Backend OK: ${data.status}`;
+                statusDiv.style.color = 'green';
+            } catch (error) {
+                statusDiv.innerHTML = `❌ Backend Error: ${error.message}`;
+                statusDiv.style.color = 'red';
+                console.error('Backend check failed:', error);
+            }
+        }
+
+        // Flash buy function
+        async function flashBuy(ticketCount) {
+            const statusDiv = document.getElementById('flash-buy-status');
+            try {
+                console.log(`⚡ Flash buying ${ticketCount} tickets...`);
+                statusDiv.innerHTML = `🔄 Processing ${ticketCount} tickets...`;
+                
+                if (!connectedWallet || !currentUserAddress) {
+                    throw new Error('Wallet not connected');
+                }
+
+                // Simulate the buy process
+                const buyData = {
+                    address: currentUserAddress,
+                    ticketCount: ticketCount,
+                    tokenPolicyId: '' // ADA
+                };
+
+                console.log('📤 Sending buy request:', buyData);
+                
+                // Try to call the backend
+                const response = await fetch('/api/lottery/buy-tickets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(buyData)
+                });
+
+                const result = await response.json();
+                console.log('📥 Buy response:', result);
+
+                if (result.success) {
+                    statusDiv.innerHTML = `✅ Success! ${ticketCount} tickets purchased`;
+                    statusDiv.style.color = 'green';
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+            } catch (error) {
+                console.error('❌ Flash buy failed:', error);
+                statusDiv.innerHTML = `❌ Failed: ${error.message}`;
+                statusDiv.style.color = 'red';
+            }
+        }
+
+        // Setup flash buy buttons
+        function setupFlashBuyButtons() {
+            console.log('🔧 Setting up flash buy buttons...');
+            const flashBuyButtons = document.querySelectorAll('.flash-buy-btn');
+            
+            flashBuyButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    console.log('🖱️ Flash buy button clicked');
+                    
+                    if (!connectedWallet || !currentUserAddress) {
+                        console.log('❌ Wallet not connected');
+                        alert('Please connect your wallet first');
+                        return;
+                    }
+                    
+                    const ticketCount = parseInt(button.getAttribute('data-tickets'));
+                    console.log(`⚡ Flash buying ${ticketCount} tickets`);
+                    
+                    await flashBuy(ticketCount);
+                });
+            });
+            
+            console.log(`✅ Setup ${flashBuyButtons.length} flash buy buttons`);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Debug page loaded');
+            setupFlashBuyButtons();
+            updateWalletStatus();
+            checkBackend();
+        });
+    </script>
+</body>
+</html> 

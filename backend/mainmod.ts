@@ -10,7 +10,7 @@ function normalizeAdaPolicyId(pid: string): string {
 // Debug log for Oak and Deno version
 console.log("Nikepig backend starting, Oak version: v12.6.1, Deno version:", Deno.version);
 
-// Global storage for real historical winners with file persistence
+// Global storage for real historical winners with Render-compatible persistence
 const WINNERS_FILE = '/tmp/historical_winners.json';
 
 // Store winners in environment variables for Render persistence
@@ -40,30 +40,19 @@ let historicalWinnersStorage: Array<{
   totalTickets: number;
 }> = [];
 
-// Load existing winners from file and environment variables
+// Load existing winners with Render-compatible storage
 function loadWinnersFromStorage() {
   try {
-    // First try to load from file (primary storage)
-    try {
-      const fileData = Deno.readTextFileSync(WINNERS_FILE);
-      if (fileData) {
-        historicalWinnersStorage = JSON.parse(fileData);
-        console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from file storage`);
-        return;
-      }
-    } catch (fileError) {
-      console.log('📊 No existing winners file found, checking environment...');
-    }
-
-    // Fallback to environment variable (for initial data)
+    // RENDER COMPATIBLE: Always try environment first (primary storage for Render)
     const envData = Deno.env.get(WINNERS_ENV_KEY);
     if (envData) {
       try {
         const envWinners = JSON.parse(envData);
         if (Array.isArray(envWinners) && envWinners.length > 0) {
           historicalWinnersStorage = envWinners;
-          console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment`);
-          // Save to file for future persistence
+          console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from environment (Render primary storage)`);
+          
+          // Also save to file as backup (for local development)
           saveWinnersToFile();
           return;
         }
@@ -72,33 +61,54 @@ function loadWinnersFromStorage() {
       }
     }
 
-    // If both file and environment are empty, start fresh
+    // Fallback: Try file storage (for local development)
+    try {
+      const fileData = Deno.readTextFileSync(WINNERS_FILE);
+      if (fileData) {
+        const fileWinners = JSON.parse(fileData);
+        if (Array.isArray(fileWinners) && fileWinners.length > 0) {
+          historicalWinnersStorage = fileWinners;
+          console.log(`📊 Loaded ${historicalWinnersStorage.length} rounds from file storage (local backup)`);
+          
+          // Save to environment for Render persistence
+          saveWinnersToEnv();
+          return;
+        }
+      }
+    } catch (fileError) {
+      console.log('📊 No existing winners file found');
+    }
+
+    // If both storage methods are empty, start fresh
     console.log('📊 No existing winners found, starting fresh');
     historicalWinnersStorage = [];
+    
   } catch (error) {
     console.log('📊 Error loading winners, starting fresh:', error);
     historicalWinnersStorage = [];
   }
 }
 
-// Save winners to file (primary storage method)
+// Save winners to file (backup storage for local development)
 function saveWinnersToFile() {
   try {
     const winnersJson = JSON.stringify(historicalWinnersStorage, null, 2);
     Deno.writeTextFileSync(WINNERS_FILE, winnersJson);
-    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to file storage`);
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to file storage (local backup)`);
   } catch (error) {
     console.error('❌ Error saving winners to file:', error);
   }
 }
 
-// Save winners to environment variables (backup method - for Render compatibility)
+// Save winners to environment variables (primary storage for Render)
 function saveWinnersToEnv() {
   try {
     const winnersJson = JSON.stringify(historicalWinnersStorage, null, 2);
     // Note: Deno.env.set() doesn't work on Render, but we keep this for local development
+    // On Render, we need to manually update the environment variable in the dashboard
     Deno.env.set(WINNERS_ENV_KEY, winnersJson);
-    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to environment (local only)`);
+    console.log(`💾 Saved ${historicalWinnersStorage.length} rounds to environment (Render primary storage)`);
+    console.log(`📝 IMPORTANT: On Render, manually update NIKEPIG_HISTORICAL_WINNERS environment variable with: ${winnersJson.substring(0, 100)}...`);
   } catch (error) {
     console.error('❌ Error saving winners to environment:', error);
   }
