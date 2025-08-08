@@ -203,27 +203,10 @@
             <section id="historical-winners-section" class="card-panel">
                 <div class="winners-header">
                     <h2 class="section-header">Lottery Winners</h2>
-                    <div class="winners-tabs">
-                        <button class="winners-tab active" data-tab="weekly">Weekly Results</button>
-                        <button class="winners-tab" data-tab="monthly">Monthly Results</button>
-                    </div>
                 </div>
                 
-                <!-- Weekly Results Tab Content -->
-                <div id="weekly-tab-content" class="winners-tab-content active">
-                    <div class="spreadsheet-header">
-                        <div class="spreadsheet-controls">
-                            <div class="search-container">
-                                <input type="text" id="weekly-winners-search" placeholder="Enter wallet address..." class="search-input">
-                                <button id="clear-weekly-search" class="clear-search-btn">Clear</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="historicalWinnersList"></div>
-                </div>
-                
-                <!-- Monthly Results Tab Content -->
-                <div id="monthly-tab-content" class="winners-tab-content">
+                <!-- Winners Content -->
+                <div id="winners-content" class="winners-content">
                     <div class="spreadsheet-header">
                         <div class="spreadsheet-controls">
                             <div class="search-container">
@@ -248,7 +231,7 @@
                             </tbody>
                         </table>
                         <div id="empty-message" class="empty-message" style="display: none;">
-                            No winners recorded for this month yet.
+                            No winners recorded yet.
                         </div>
                     </div>
                 </div>

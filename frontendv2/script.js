@@ -896,90 +896,73 @@ async function fetchAndDisplayUserTickets() {
 
 
 
-// Safe hybrid sync function (doesn't interfere with ticket purchases)
-async function syncWinnersData() {
-    try {
-        console.log('🔄 Syncing winners data between backend and frontend...');
-        
-        // 1. Load from backend
-        const backendResponse = await fetchAPI('/api/lottery/winners');
-        let backendWinners = [];
-        
-        if (backendResponse.success && backendResponse.historicalWinners) {
-            backendWinners = backendResponse.historicalWinners;
-            console.log(`📊 Backend has ${backendWinners.length} rounds`);
-        }
-        
-        // 2. Load from localStorage
-        const localWinners = loadWinnersFromLocalStorage();
-        console.log(`📊 localStorage has ${localWinners.length} rounds`);
-        
-        // 3. Merge data (backend takes priority, but keep local if backend is empty)
-        let mergedWinners = [];
-        
-        if (backendWinners.length > 0) {
-            // Backend has data - use it and update localStorage
-            mergedWinners = backendWinners;
-            console.log('✅ Using backend data and updated localStorage');
-        } else if (localWinners.length > 0) {
-            // Backend is empty but localStorage has data - use localStorage
-            mergedWinners = localWinners;
-            console.log('✅ Using localStorage data (backend empty)');
-        } else {
-            // Both empty
-            mergedWinners = [];
-            console.log('✅ Both backend and localStorage are empty');
-        }
-        
-        // 4. Update global variables
-        window.flatHistoricalWinners = mergedWinners;
-        window.currentRoundWinners = backendResponse.currentRoundWinners || [];
-        
-        // 5. Update UI
-        syncWinnersToTrackerPage();
-        saveWinnersToLocalStorage();
-        
-        console.log(`🔄 Winners sync completed: ${mergedWinners.length} rounds available`);
-        return mergedWinners;
-        
-    } catch (error) {
-        console.error('❌ Error syncing winners data:', error);
-        // Fallback to localStorage only
-        const localWinners = loadWinnersFromLocalStorage();
-        window.flatHistoricalWinners = localWinners;
-        return localWinners;
-    }
-}
-
 async function refreshWinners() {
     try {
-        console.log('🔄 Refreshing winners (hybrid approach)...');
+        console.log('🔄 Refreshing winners (FRONTEND-ONLY SOLUTION)...');
         
-        // Use the new hybrid sync function
-        const flatHistoricalWinners = await syncWinnersData();
+        // FRONTEND-ONLY APPROACH: Load from localStorage first, then try backend as backup
+        let flatHistoricalWinners = [];
+        let currentRoundWinners = [];
         
-        // Flatten historical winners structure - backend returns nested structure
-        let processedWinners = [];
-        if (flatHistoricalWinners && Array.isArray(flatHistoricalWinners)) {
-            console.log('🔍 Processing historical winners structure...');
-            flatHistoricalWinners.forEach(round => {
-                if (round.winners && Array.isArray(round.winners)) {
-                    round.winners.forEach(winner => {
-                        processedWinners.push({
-                            ...winner,
-                            roundNumber: round.roundNumber,
-                            timestamp: round.drawDate || winner.claimedAt,
-                            txHash: winner.transactionId,
-                            amountADA: winner.amount // Backend uses 'amount', frontend expects 'amountADA'
-                        });
-                    });
-                }
-            });
-            console.log('🔍 Processed historical winners:', processedWinners);
+        // 1. ALWAYS load from localStorage first (primary source)
+        const stored = localStorage.getItem('nikepigWinnersData');
+        if (stored) {
+            try {
+                const winnersData = JSON.parse(stored);
+                flatHistoricalWinners = winnersData.current || [];
+                currentRoundWinners = winnersData.currentRound || [];
+                console.log('📊 Loaded from localStorage:', flatHistoricalWinners.length, 'historical winners');
+            } catch (error) {
+                console.error('❌ Error parsing localStorage:', error);
+            }
         }
         
-        // Store in global variables for lottery-winners page access
-        window.flatHistoricalWinners = processedWinners;
+        // 2. Try backend as backup (but don't overwrite if localStorage has data)
+        try {
+            const response = await fetchAPI('/api/lottery/winners');
+            if (response.success) {
+                const { currentRoundWinners: backendCurrent, historicalWinners: backendHistorical } = response;
+                
+                console.log('📊 Backend response:', {
+                    currentRoundWinners: backendCurrent?.length || 0,
+                    historicalWinners: backendHistorical?.length || 0
+                });
+                
+                // Only use backend data if localStorage is empty
+                if (flatHistoricalWinners.length === 0 && backendHistorical && Array.isArray(backendHistorical)) {
+                    console.log('📊 Using backend data as localStorage is empty...');
+                    backendHistorical.forEach(round => {
+                        if (round.winners && Array.isArray(round.winners)) {
+                            round.winners.forEach(winner => {
+                                flatHistoricalWinners.push({
+                                    ...winner,
+                                    roundNumber: round.roundNumber,
+                                    timestamp: round.drawDate || winner.claimedAt,
+                                    txHash: winner.transactionId,
+                                    amountADA: winner.amount
+                                });
+                            });
+                        }
+                    });
+                    
+                    // Save backend data to localStorage immediately
+                    saveWinnersToLocalStorage();
+                } else {
+                    console.log('📊 Keeping localStorage data, backend data ignored');
+                }
+                
+                // Always use backend current round winners if available
+                if (backendCurrent && Array.isArray(backendCurrent)) {
+                    currentRoundWinners = backendCurrent;
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Backend fetch failed, using localStorage only:', error.message);
+        }
+        
+        // Store in global variables
+        window.flatHistoricalWinners = flatHistoricalWinners;
+        window.currentRoundWinners = currentRoundWinners;
         
         // Check if current user is a winner (for winner banner)
         let userIsWinner = false;
@@ -988,8 +971,8 @@ async function refreshWinners() {
         let userStatus = '';
         
         // Check current round winners for user
-        if (window.currentRoundWinners && window.currentRoundWinners.length > 0) {
-            const userWinner = window.currentRoundWinners.find(winner => 
+        if (currentRoundWinners && currentRoundWinners.length > 0) {
+            const userWinner = currentRoundWinners.find(winner => 
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
@@ -1001,8 +984,8 @@ async function refreshWinners() {
         }
         
         // Check flattened historical winners for user 
-        if (!userIsWinner && processedWinners && processedWinners.length > 0) {
-            const userWinner = processedWinners.find(winner => 
+        if (!userIsWinner && flatHistoricalWinners && flatHistoricalWinners.length > 0) {
+            const userWinner = flatHistoricalWinners.find(winner => 
                 connectedWallet && winner.address && winner.address === window.currentUserAddress
             );
             if (userWinner) {
@@ -1023,6 +1006,24 @@ async function refreshWinners() {
         // Sync winners data to lottery-winners page
         syncWinnersToTrackerPage();
         
+        // Save winners data to localStorage (always save to ensure persistence)
+        saveWinnersToLocalStorage();
+        
+        // CRITICAL: Set up automatic saving when new winners are detected
+        if (!window.autoSaveInterval) {
+            window.autoSaveInterval = setInterval(() => {
+                // Check if we have new winners data that needs saving
+                const currentWinners = window.flatHistoricalWinners || [];
+                const lastSaved = window.lastSavedWinnersCount || 0;
+                
+                if (currentWinners.length > lastSaved) {
+                    console.log(`🔄 Auto-saving ${currentWinners.length} winners (was ${lastSaved})`);
+                    saveWinnersToLocalStorage();
+                    window.lastSavedWinnersCount = currentWinners.length;
+                }
+            }, 30000); // Check every 30 seconds
+        }
+        
         // Auto-refresh Detailed Winners History if it's currently open
         refreshDetailedWinnersHistory();
         
@@ -1037,9 +1038,9 @@ async function refreshWinners() {
                     return;
                 }
                 
-                // Only refresh if Monthly Results tab is actually active
-                const monthlyTabContent = document.getElementById('monthly-tab-content');
-                if (monthlyTabContent && monthlyTabContent.classList.contains('active')) {
+                // Only refresh if winners content is actually visible
+                const winnersContent = document.getElementById('winners-content');
+                if (winnersContent && winnersContent.style.display !== 'none') {
                     refreshDetailedWinnersHistory();
                 } else {
                     console.log('📊 Monthly Results tab not active, skipping refresh');
@@ -1047,130 +1048,10 @@ async function refreshWinners() {
             }, 600000); // 10 minutes - much safer interval to prevent data loss
         }
 
-        // --- Historical Winners (Scroll Container) ---
-        const historicalWinnersList = document.getElementById('historicalWinnersList');
-        if (!flatHistoricalWinners || flatHistoricalWinners.length === 0) {
-            historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
-        } else {
-            // Group winners by round number (same round = same box)
-            const groupedByRound = {};
-            
-            flatHistoricalWinners.forEach(winner => {
-                const roundKey = winner.roundNumber || 'unknown-round';
-                
-                if (!groupedByRound[roundKey]) {
-                    groupedByRound[roundKey] = {
-                        winners: [],
-                        timestamp: winner.timestamp,
-                        roundNumber: winner.roundNumber,
-                        txHash: winner.txHash // Use first winner's txHash for the group
-                    };
-                }
-                groupedByRound[roundKey].winners.push(winner);
-            });
-            
-            // Sort groups by timestamp (most recent first)
-            const sortedGroups = Object.entries(groupedByRound).sort((a, b) => {
-                const timestampA = a[1].timestamp ? new Date(a[1].timestamp) : new Date(0);
-                const timestampB = b[1].timestamp ? new Date(b[1].timestamp) : new Date(0);
-                return timestampB - timestampA;
-            });
-            
-            console.log(`📊 Total rounds found: ${sortedGroups.length}`);
-            
-            let html = '<div class="historical-winners-container">';
-            
-            // Use only real data - limit to 7 most recent rounds (first-in-last-out)
-            const limitedGroups = sortedGroups.slice(0, 7);
-            console.log(`📊 Displaying ${limitedGroups.length} most recent rounds`);
-            
-            if (limitedGroups.length === 0) {
-                historicalWinnersList.innerHTML = '<p>No historical winners yet</p>';
-                return;
-            }
-            
-            limitedGroups.forEach(([roundKey, group]) => {
-                // Sort winners within group by position (1st, 2nd, 3rd place)
-                const sortedWinners = group.winners.sort((a, b) => {
-                    // Sort by position (1st place first, 3rd place last)
-                    const positionA = a.position || 0;
-                    const positionB = b.position || 0;
-                    return positionA - positionB;
-                });
-                
-                html += '<div class="winner-group">';
-                
-                // Add round info header - only show date
-                const timestamp = group.timestamp ? new Date(group.timestamp) : null;
-                const formattedDate = timestamp ? `${timestamp.getDate()}-${timestamp.getMonth() + 1}-${timestamp.getFullYear()}` : '';
-                html += `<div class="winner-group-header">${formattedDate || 'Recent Round'}</div>`;
-                
-                // Add compact winners grid (3 winners in one box)
-                html += '<div class="winners-grid">';
-                sortedWinners.forEach(winner => {
-                    const address = winner.address || 'Unknown Address';
-                    
-                    // Handle real token amounts from backend
-                    const amounts = [];
-                    if (winner.amountADA || winner.amount) {
-                        amounts.push({
-                            amount: winner.amountADA || winner.amount,
-                            token: 'ADA'
-                        });
-                    }
-                    if (winner.amountSNEK) {
-                        amounts.push({
-                            amount: winner.amountSNEK,
-                            token: 'SNEK'
-                        });
-                    }
-                    if (winner.amountNIKEPIG) {
-                        amounts.push({
-                            amount: winner.amountNIKEPIG,
-                            token: 'NIKEPIG'
-                        });
-                    }
-
-                    html += `
-                        <div class="winner-compact">
-                            <div class="winner-info">
-                                <div class="winner-address">${formatAddress(address)}</div>
-                                <div class="winner-amounts">
-                                    ${amounts.map(item => `
-                                        <div class="winner-amount-item">
-                                            <span class="winner-amount">${formatAmountOnly(item.amount)}</span>
-                                            <span class="winner-token">${item.token}</span>
-                            </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>'; // Close winners-grid
-                
-                // Add transaction button below the group with real transaction ID
-                const txHash = group.txHash || '';
-                const cardanoscanUrl = txHash ? 
-                    `https://preview.cardanoscan.io/transaction/${txHash}` : 
-                    '#';
-                
-                html += `
-                        <div class="winner-tx-group">
-                        <a href="${cardanoscanUrl}" target="_blank" 
-                           class="tx-button" title="View transaction on Cardanoscan"
-                           ${!txHash ? 'style="opacity: 0.5; pointer-events: none;"' : ''}>
-                            View Transaction
-                            </a>
-                        </div>
-                    `;
-                
-                html += '</div>'; // Close winner-group
-            });
-            html += '</div>';
-            console.log('🔍 Rendering historical winners:', html);
-            historicalWinnersList.innerHTML = html;
-        }
+        // --- Winners Display (Simplified) ---
+        // Use the monthly results approach for all winners display
+        const currentMonthWinners = filterWinnersByCurrentMonth(flatHistoricalWinners);
+        populateWinnersSpreadsheet(currentMonthWinners);
 
         // Only show notification if manually triggered
         if (arguments.length > 0) {
@@ -2019,7 +1900,7 @@ function setupEventListeners() {
         location.reload(true);
     };
   
-  // Winners search functionality
+  // Winners search functionality (simplified - only one search now)
   const winnersSearchInput = document.getElementById('winners-search');
   if (winnersSearchInput) {
       winnersSearchInput.addEventListener('input', (e) => {
@@ -2030,19 +1911,6 @@ function setupEventListeners() {
   const clearSearchBtn = document.getElementById('clear-search');
   if (clearSearchBtn) {
       clearSearchBtn.addEventListener('click', clearWinnersSearch);
-  }
-  
-  // Weekly winners search functionality
-  const weeklyWinnersSearchInput = document.getElementById('weekly-winners-search');
-  if (weeklyWinnersSearchInput) {
-      weeklyWinnersSearchInput.addEventListener('input', (e) => {
-          searchWeeklyWinners(e.target.value);
-      });
-  }
-  
-  const clearWeeklySearchBtn = document.getElementById('clear-weekly-search');
-  if (clearWeeklySearchBtn) {
-      clearWeeklySearchBtn.addEventListener('click', clearWeeklyWinnersSearch);
   }
   
   // Spreadsheet tab buttons (removed - no longer needed)
@@ -3387,11 +3255,14 @@ function refreshDetailedWinnersHistory() {
 // Frontend localStorage backup for winners data (Render-compatible)
 const WINNERS_LOCAL_STORAGE_KEY = 'nikepig_historical_winners_v2';
 
-// Function to save winners data to localStorage for lottery-winners page access
+// Function to save winners data to localStorage (ENHANCED FOR FRONTEND-ONLY SOLUTION)
 function saveWinnersToLocalStorage() {
     try {
         // Use only flatHistoricalWinners to prevent duplicates
         const allWinners = window.flatHistoricalWinners || [];
+        const currentRoundWinners = window.currentRoundWinners || [];
+        
+        console.log(`💾 Saving winners to localStorage: ${allWinners.length} historical, ${currentRoundWinners.length} current round`);
         
         // Remove duplicates based on round number, transaction ID, and position
         const uniqueWinners = [];
@@ -3413,22 +3284,29 @@ function saveWinnersToLocalStorage() {
         
         console.log(`💾 Processing ${uniqueWinners.length} unique winners for localStorage`);
         
-        // Save complete winners data to localStorage (Render backup)
+        // Save complete winners data to localStorage (PRIMARY BACKUP)
         const completeData = {
+            current: uniqueWinners,
+            currentRound: currentRoundWinners,
+            timestamp: new Date().toISOString(),
+            version: '2.86.0',
+            source: 'frontend-primary-backup'
+        };
+        localStorage.setItem('nikepigWinnersData', JSON.stringify(completeData));
+        console.log(`💾 Saved ${uniqueWinners.length} winners to primary localStorage`);
+        
+        // Save complete winners data to localStorage (Render backup)
+        const renderBackupData = {
             winners: uniqueWinners,
             timestamp: new Date().toISOString(),
             version: '2.86.0',
-            source: 'frontend-backup'
+            source: 'frontend-render-backup'
         };
-        localStorage.setItem(WINNERS_LOCAL_STORAGE_KEY, JSON.stringify(completeData));
-        console.log(`💾 Saved ${uniqueWinners.length} winners to localStorage (Render backup)`);
+        localStorage.setItem(WINNERS_LOCAL_STORAGE_KEY, JSON.stringify(renderBackupData));
+        console.log(`💾 Saved ${uniqueWinners.length} winners to Render backup localStorage`);
         
         // Filter to current month only for Detailed Winners History
         const currentMonthWinners = filterWinnersByCurrentMonth(uniqueWinners);
-        
-        // Save current month winners to localStorage (existing functionality)
-        localStorage.setItem('nikepigWinnersData', JSON.stringify({ current: currentMonthWinners }));
-        console.log(`💾 Saved ${currentMonthWinners.length} current month winners to localStorage`);
         
         // Also save a backup copy with timestamp
         const backupData = {
@@ -3440,23 +3318,67 @@ function saveWinnersToLocalStorage() {
         localStorage.setItem('nikepigWinnersDataBackup', JSON.stringify(backupData));
         console.log('💾 Created backup of winners data');
         
+        // CRITICAL: Also save to sessionStorage for immediate recovery
+        sessionStorage.setItem('nikepigWinnersData', JSON.stringify(completeData));
+        console.log('💾 Saved to sessionStorage for immediate recovery');
+        
     } catch (error) {
         console.error('❌ Error saving winners to localStorage:', error);
+        
+        // Try to save minimal data even if full save fails
+        try {
+            const minimalData = {
+                current: window.flatHistoricalWinners || [],
+                timestamp: Date.now(),
+                error: true
+            };
+            localStorage.setItem('nikepigWinnersData', JSON.stringify(minimalData));
+            console.log('💾 Saved minimal data after error');
+        } catch (minimalError) {
+            console.error('❌ Failed to save even minimal data:', minimalError);
+        }
     }
 }
 
-// Load winners data from localStorage (frontend backup)
+// Load winners data from localStorage (ENHANCED FOR FRONTEND-ONLY SOLUTION)
 function loadWinnersFromLocalStorage() {
     try {
-        const storedData = localStorage.getItem(WINNERS_LOCAL_STORAGE_KEY);
-        if (storedData) {
-            const parsedData = JSON.parse(storedData);
-            if (parsedData.winners && Array.isArray(parsedData.winners)) {
-                console.log(`📊 Loaded ${parsedData.winners.length} rounds from localStorage (frontend backup)`);
-                console.log(`📊 Last updated: ${parsedData.timestamp}`);
-                return parsedData.winners;
+        // Try multiple sources in order of priority
+        const sources = [
+            { key: 'nikepigWinnersData', name: 'primary localStorage' },
+            { key: 'nikepigWinnersDataBackup', name: 'backup localStorage' },
+            { key: WINNERS_LOCAL_STORAGE_KEY, name: 'Render backup localStorage' },
+            { key: 'nikepigWinnersData', storage: sessionStorage, name: 'sessionStorage' }
+        ];
+        
+        for (const source of sources) {
+            const storage = source.storage || localStorage;
+            const storedData = storage.getItem(source.key);
+            
+            if (storedData) {
+                try {
+                    const parsedData = JSON.parse(storedData);
+                    
+                    // Handle different data formats
+                    let winners = [];
+                    if (parsedData.current && Array.isArray(parsedData.current)) {
+                        winners = parsedData.current;
+                    } else if (parsedData.winners && Array.isArray(parsedData.winners)) {
+                        winners = parsedData.winners;
+                    }
+                    
+                    if (winners.length > 0) {
+                        console.log(`📊 Loaded ${winners.length} winners from ${source.name}`);
+                        console.log(`📊 Last updated: ${parsedData.timestamp || 'unknown'}`);
+                        return winners;
+                    }
+                } catch (parseError) {
+                    console.error(`❌ Error parsing ${source.name}:`, parseError);
+                }
             }
         }
+        
+        console.log('📊 No winners data found in any localStorage source');
         return [];
     } catch (error) {
         console.error('❌ Error loading winners from localStorage:', error);
@@ -3464,44 +3386,9 @@ function loadWinnersFromLocalStorage() {
     }
 }
 
-// Function to handle winners tab switching
-function switchWinnersTab(tabName) {
-    console.log(`🔄 Switching to ${tabName} tab`);
-    
-    // Remove active class from all tabs and content
-    const allTabs = document.querySelectorAll('.winners-tab');
-    const allTabContents = document.querySelectorAll('.winners-tab-content');
-    
-    allTabs.forEach(tab => tab.classList.remove('active'));
-    allTabContents.forEach(content => content.classList.remove('active'));
-    
-    // Add active class to selected tab and content
-    const selectedTab = document.querySelector(`[data-tab="${tabName}"]`);
-    const selectedContent = document.getElementById(`${tabName}-tab-content`);
-    
-    if (selectedTab && selectedContent) {
-        selectedTab.classList.add('active');
-        selectedContent.classList.add('active');
-        
-        // Load data for the selected tab
-        if (tabName === 'monthly') {
-            loadMonthlyWinners();
-        } else if (tabName === 'weekly') {
-            loadWeeklyWinners();
-        }
-    }
-}
-
-// Function to load weekly winners (default view)
-function loadWeeklyWinners() {
-    console.log('📊 Loading weekly winners...');
-    // Weekly winners are already loaded in historicalWinnersList
-    // This function can be used for any weekly-specific logic
-}
-
-// Function to load monthly winners (hybrid approach)
-function loadMonthlyWinners() {
-    console.log('📊 Loading monthly winners (hybrid approach)...');
+// Function to load winners (simplified)
+function loadWinners() {
+    console.log('📊 Loading winners...');
     
     // Strategy: Try backend first, fallback to localStorage, preserve existing data
     const now = Date.now();
@@ -3509,19 +3396,19 @@ function loadMonthlyWinners() {
     const shouldSyncFromBackend = timeSinceLastSync > 300000; // 5 minutes
     
     if (shouldSyncFromBackend) {
-        console.log('🔄 Syncing monthly data from backend...');
-        syncMonthlyWinnersFromBackend();
+        console.log('🔄 Syncing data from backend...');
+        syncWinnersFromBackend();
     } else {
-        console.log('📊 Using cached monthly data...');
-        loadMonthlyWinnersFromCache();
+        console.log('📊 Using cached data...');
+        loadWinnersFromCache();
     }
 }
 
-// Function to sync monthly winners from backend with data preservation
-function syncMonthlyWinnersFromBackend() {
+// Function to sync winners from backend with data preservation
+function syncWinnersFromBackend() {
     fetchAPI('/api/lottery/winners').then(response => {
         if (response.success && response.historicalWinners) {
-            console.log('📊 Fresh monthly data from backend:', response.historicalWinners.length, 'rounds');
+            console.log('📊 Fresh data from backend:', response.historicalWinners.length, 'rounds');
             
             // Process backend data
             let freshWinners = [];
@@ -3543,35 +3430,35 @@ function syncMonthlyWinnersFromBackend() {
             }
             
             // Merge with existing data (preserve local additions)
-            const existingData = window.monthlyWinnersData || [];
+            const existingData = window.winnersData || [];
             const mergedData = mergeWinnersData(freshWinners, existingData);
             
             // Update global storage
-            window.monthlyWinnersData = mergedData;
+            window.winnersData = mergedData;
             window.lastBackendSync = Date.now();
             
             // Save to localStorage
-            saveMonthlyWinnersToLocalStorage(mergedData);
+            saveWinnersToLocalStorage();
             
             // Display current month data
             const currentMonthWinners = filterWinnersByCurrentMonth(mergedData);
             populateWinnersSpreadsheet(currentMonthWinners);
             
-            console.log('✅ Monthly data synced successfully:', mergedData.length, 'total winners');
+            console.log('✅ Data synced successfully:', mergedData.length, 'total winners');
         } else {
             console.log('⚠️ Backend returned no data, using cached data');
-            loadMonthlyWinnersFromCache();
+            loadWinnersFromCache();
         }
     }).catch(error => {
         console.error('❌ Error syncing from backend:', error);
         console.log('📊 Falling back to cached data');
-        loadMonthlyWinnersFromCache();
+        loadWinnersFromCache();
     });
 }
 
-// Function to load monthly winners from cache
-function loadMonthlyWinnersFromCache() {
-    console.log('📊 Loading monthly data from cache...');
+// Function to load winners from cache
+function loadWinnersFromCache() {
+    console.log('📊 Loading data from cache...');
     
     let cachedData = [];
     
@@ -3602,13 +3489,13 @@ function loadMonthlyWinnersFromCache() {
     }
     
     // Update global storage
-    window.monthlyWinnersData = cachedData;
+    window.winnersData = cachedData;
     
     // Display current month data
     const currentMonthWinners = filterWinnersByCurrentMonth(cachedData);
     populateWinnersSpreadsheet(currentMonthWinners);
     
-    console.log('✅ Monthly data loaded from cache:', cachedData.length, 'winners');
+    console.log('✅ Cached data loaded successfully:', cachedData.length, 'total winners');
 }
 
 // Function to merge winners data (backend + local)
@@ -4165,48 +4052,53 @@ function searchWinners(searchTerm) {
     }
 }
 
-// Function to search weekly winners by wallet address
+// Function to search weekly winners by wallet address (REMOVED - no longer needed)
 // This allows users to search for specific wallet addresses in the Weekly Results section
-function searchWeeklyWinners(searchTerm) {
-    if (!searchTerm || searchTerm.trim() === '') {
-        // If search is empty, show all weekly winners
-        const historicalWinnersList = document.getElementById('historicalWinnersList');
-        if (historicalWinnersList) {
-            // Trigger a refresh of the weekly winners display
-            refreshWinners();
-        }
-        return;
-    }
-    
+// Function to manually add new winners to frontend storage (for new rounds)
+function addNewWinnersToStorage(newWinners) {
     try {
-        // Get all winners data from flatHistoricalWinners
-        let allWinners = [];
-        if (window.flatHistoricalWinners && window.flatHistoricalWinners.length > 0) {
-            allWinners = window.flatHistoricalWinners;
-        } else {
-            // Try to get from localStorage
-            const stored = localStorage.getItem('nikepigWinnersData');
-            if (stored) {
-                const winnersData = JSON.parse(stored);
-                allWinners = winnersData.current || [];
+        console.log('🔄 Adding new winners to frontend storage:', newWinners.length);
+        
+        // Get existing winners
+        const existingWinners = window.flatHistoricalWinners || [];
+        
+        // Add new winners (avoid duplicates)
+        const allWinners = [...existingWinners];
+        newWinners.forEach(newWinner => {
+            const isDuplicate = existingWinners.some(existing => 
+                existing.roundNumber === newWinner.roundNumber &&
+                existing.address === newWinner.address &&
+                existing.position === newWinner.position
+            );
+            
+            if (!isDuplicate) {
+                allWinners.push(newWinner);
+                console.log('✅ Added new winner:', newWinner);
+            } else {
+                console.log('🔄 Skipping duplicate winner:', newWinner);
             }
-        }
-        
-        const searchLower = searchTerm.toLowerCase();
-        
-        // Filter winners by address (all historical winners, not just current month)
-        const filteredWinners = allWinners.filter(winner => {
-            const address = winner.winnerAddress || winner.address || '';
-            return address.toLowerCase().includes(searchLower);
         });
         
-        // Display filtered results in the weekly winners section
-        displayFilteredWeeklyWinners(filteredWinners);
+        // Update global storage
+        window.flatHistoricalWinners = allWinners;
         
-        console.log(`🔍 Weekly search completed for: "${searchTerm}" - Found ${filteredWinners.length} results`);
+        // Save immediately to localStorage
+        saveWinnersToLocalStorage();
+        
+        // Update display
+        const currentMonthWinners = filterWinnersByCurrentMonth(allWinners);
+        populateWinnersSpreadsheet(currentMonthWinners);
+        
+        console.log(`✅ Successfully added ${newWinners.length} new winners. Total: ${allWinners.length}`);
+        
     } catch (error) {
-        console.error('❌ Error searching weekly winners:', error);
+        console.error('❌ Error adding new winners to storage:', error);
     }
+}
+
+function searchWeeklyWinners(searchTerm) {
+    console.log('📊 Weekly search removed - using unified winners display');
+    // Weekly search functionality removed since we now have a single winners display
 }
 
 // Function to display filtered weekly winners
@@ -4291,17 +4183,10 @@ function displayFilteredWeeklyWinners(winners) {
     historicalWinnersList.innerHTML = html;
 }
 
-// Function to clear weekly search
+// Function to clear weekly search (REMOVED - no longer needed)
 function clearWeeklyWinnersSearch() {
-    const searchInput = document.getElementById('weekly-winners-search');
-    if (searchInput) {
-        searchInput.value = '';
-    }
-    
-    console.log('🔄 Clearing weekly search and restoring all results...');
-    
-    // Refresh the weekly winners display
-    refreshWinners();
+    console.log('📊 Weekly search clear removed - using unified winners display');
+    // Weekly search clear functionality removed since we now have a single winners display
 }
 
 // Function to clear search
